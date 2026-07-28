@@ -12,7 +12,7 @@
     <!-- Logo (26.07.2026, von Alex beigesteuert): quadratisch zugeschnittenes
          X-Zeichen als Programm-Icon, mehrere Groessen von 16 bis 256 px -->
     <ApplicationIcon>Assets\ToolboxX.ico</ApplicationIcon>
-    <Version>0.6.3</Version>
+    <Version>0.6.4</Version>
     <Title>Toolbox X</Title>
     <Product>Toolbox X</Product>
     <Description>Toolbox X – Zukunfts-Toolsammlung fürs Windows-System. Kostenlos, Open Source, kein Abo.</Description>
