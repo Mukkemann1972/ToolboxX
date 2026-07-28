@@ -1,4 +1,4 @@
-# Toolbox X – v0.5.0 (16 Module, alle getestet, erste Tester an Bord)
+# Toolbox X – v0.6.4
 
 *(vormals "PC-Toolbox" – gleiches Projekt, neuer Name: eine Zukunfts-Toolsammlung,
 nicht nur ein PC-Check)*
