@@ -1,0 +1,187 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>PC-Toolbox</AssemblyName>
+    <RootNamespace>PCToolbox</RootNamespace>
+    <!-- Logo (26.07.2026, von Alex beigesteuert): quadratisch zugeschnittenes
+         X-Zeichen als Programm-Icon, mehrere Groessen von 16 bis 256 px -->
+    <ApplicationIcon>Assets\ToolboxX.ico</ApplicationIcon>
+    <Version>0.6.3</Version>
+    <Title>Toolbox X</Title>
+    <Product>Toolbox X</Product>
+    <Description>Toolbox X – Zukunfts-Toolsammlung fürs Windows-System. Kostenlos, Open Source, kein Abo.</Description>
+    <!-- Pro/Free-Trennung passiert zur BUILD-ZEIT, nicht zur Laufzeit (s. IDEEN_BACKLOG.md,
+         "Zwei-Tier-Modell"): ausgegraute Buttons liessen sich umgehen, echtes Weglassen aus
+         dem Free-Build nicht. Normaler `dotnet build`/`dotnet publish` (kein ProBuild-Flag)
+         => Free, alles unter Modules/Pro + Services/Pro fehlt im Ergebnis komplett. Mit
+         `-p:ProBuild=true` => Pro-Build, dieselben Dateien werden mitkompiliert. -->
+    <DefineConstants Condition="'$(ProBuild)'=='true'">$(DefineConstants);PRO_BUILD</DefineConstants>
+    <!-- AssemblyName bewusst NICHT je Build-Variante unterschiedlich: Themes/ToolboxXTheme*.xaml
+         werden zur Laufzeit als Text geparst (nicht als BAML kompiliert, s. Kommentar weiter
+         unten) und enthalten darin "assembly=PC-Toolbox" fest verdrahtet für den
+         AmpelGlyphConverter - ein anderer Assembly-Name hier hätte den Converter zur Laufzeit
+         unauffindbar gemacht (genau das ist beim ersten Pro-Testbuild auch passiert, sichtbar
+         am "Theme Error"-Dialog). Free/Pro-Ausgaben bleiben stattdessen einfach durch
+         unterschiedliche Publish-Ordner getrennt (build/publish vs. build/publish-pro). -->
+    <Product Condition="'$(ProBuild)'=='true'">Toolbox X Pro</Product>
+    <Description Condition="'$(ProBuild)'=='true'">Toolbox X Pro – für Werkstatt, IT-Profis und Systemadministratoren.</Description>
+    <!-- Die eigenen bin/obj-Ordner für den Pro-Build stehen in Directory.Build.props
+         (src/Directory.Build.props) statt hier - BaseIntermediateOutputPath muss VOR
+         Microsoft.Common.props gesetzt sein, sonst landen NuGet-Restore-Dateien noch im
+         alten obj/-Ordner (führte zu doppelten AssemblyInfo-Attributen beim Wechsel
+         zwischen Pro- und Free-Build ohne "dotnet clean" dazwischen). -->
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(ProBuild)' != 'true'">
+    <!-- Pro-Module bleiben bei einem normalen (Free-)Build komplett aussen vor - nicht nur
+         unsichtbar, sondern gar nicht erst kompiliert. Jedes neue Pro-Modul gehört in
+         Modules/Pro bzw. Services/Pro, dann greift dieser Ausschluss automatisch. -->
+    <Compile Remove="Modules\Pro\**\*.cs" />
+    <Page Remove="Modules\Pro\**\*.xaml" />
+    <Compile Remove="Services\Pro\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- WMI-Zugriff für System-/SMART-/ACPI-Abfragen -->
+    <!-- Version 10.0.2 statt 8.0.0: von LibreHardwareMonitorLib als Mindestversion verlangt -->
+    <PackageReference Include="System.Management" Version="10.0.2" />
+    <!-- EventLogReader/EventLogQuery für die Bluescreen-Auswertung (DumpReader.cs) -->
+    <PackageReference Include="System.Diagnostics.EventLog" Version="8.0.0" />
+    <!-- Registry-Zugriff für InstalledProgramsService/LeftoverScanner (Super-Uninstaller) -->
+    <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />
+    <!-- "GPU Engine"-Performance-Counter für Live-Auslastung (GpuDetectionService) -
+         dieselbe Datenquelle wie der Task-Manager-GPU-Tab, kein Kernel-Treiber nötig -->
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.0" />
+    <!-- Echte CPU/GPU-Temperaturen für TemperatureService/HardwareMonitorService.
+         MPL-2.0, erlaubt kommerzielle Nutzung als referenzierte Bibliothek problemlos
+         (s. IDEEN_BACKLOG.md). Nutzt seit Herbst 2025 standardmäßig PawnIO statt des
+         älteren WinRing0 (Missbrauchs-/AV-Historie) - Treiber selbst liegt separat in
+         vendor/pawnio/, wird NICHT automatisch installiert (s. HardwareMonitorService). -->
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Plattformneutrale Logik (Parsing/Namensabgleich/Pfad-Sicherheit) - siehe PC-ToolboxCore.csproj -->
+    <ProjectReference Include="..\PC-ToolboxCore\PC-ToolboxCore.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Schriften fuer die Optik-Runde (26.07.2026): Chakra Petch, Orbitron, Rajdhani -
+         alle SIL Open Font License (siehe Fonts/*/OFL.txt), kostenlos auch kommerziell
+         nutzbar, keine Namensnennungspflicht. Als Resource eingebettet statt lose Datei
+         neben der EXE, damit die Schriften ueberall per pack://application:,,,/-URI
+         referenzierbar sind (s. Themes/*.xaml). -->
+    <Resource Include="Fonts\**\*.ttf" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Logo-Grafiken (Alex' eigenes Toolbox-X-Logo): ToolboxX-Logo.png ist das
+         volle Logo mit Schriftzug fuers Hero-Banner der Uebersicht, ToolboxX-Zeichen.png
+         nur das quadratische X-Zeichen (Titelleiste/Fenstersymbol). Beide auf schwarzem
+         Grund - deshalb steht das Hero-Banner bewusst auf Schwarz, damit es nahtlos wirkt. -->
+    <Resource Include="Assets\ToolboxX-Logo.png" />
+    <Resource Include="Assets\ToolboxX-Zeichen.png" />
+    <Resource Include="Assets\ToolboxX-Schriftzug.png" />
+    <Resource Include="Assets\ToolboxX.ico" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(ProBuild)'=='true'">
+    <!-- Pro-Logo-Varianten NUR im Pro-Build eingebettet - dieselbe Regel wie für
+         Pro-Code (Modules/Pro, Services/Pro): das Free-Ergebnis bekommt auch das
+         Pro-Branding nicht mit. -->
+    <Resource Include="Assets\Pro\ToolboxX-Pro-Logo.png" />
+    <Resource Include="Assets\Pro\ToolboxX-Pro-Zeichen.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Diese zwei Theme-Dateien enthalten Akzentfarben-Platzhalter (ACCENT_TOKEN)
+         statt gueltiger Hex-Werte - koennten also gar nicht als kompilierte
+         WPF-Page/BAML gebaut werden. App.xaml.cs liest sie zur Laufzeit als
+         Text, ersetzt die Platzhalter durch die gewaehlte Akzentfarbe und
+         parst das Ergebnis selbst (XamlReader). Deshalb hier bewusst aus der
+         automatischen Page-Kompilierung raus und stattdessen als Textdatei
+         neben die EXE kopiert. -->
+    <Page Remove="Themes/ToolboxXTheme.xaml" />
+    <Page Remove="Themes/ToolboxXThemeLight.xaml" />
+    <None Include="Themes/ToolboxXTheme.xaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Themes/ToolboxXThemeLight.xaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- memtest_vulkan (zlib-Lizenz, github.com/GpuZelenograd/memtest_vulkan) - VRAM-Testmotor
+         fuers GPU-Diagnose-Modul. Original-Windows-Binary aus dem offiziellen GitHub-Release,
+         unveraendert mitgeliefert (zlib erlaubt das ausdruecklich, auch kommerziell). Liegt in
+         vendor/ (Repo-Wurzel, nicht unter src/), damit klar bleibt: fremder Code, nicht unser
+         eigener - wird hier nur automatisch in den Build-Output kopiert, kein manueller
+         Download/Setup-Schritt fuer Alex noetig. -->
+    <!-- ExcludeFromSingleFile: bei PublishSingleFile=true wuerde der Bundler diese .exe
+         sonst in die Single-File-EXE packen und sie verschwindet aus dem Publish-Ordner
+         (Lizenz-Textdateien bleiben, die .exe nicht - beim ersten Release-Publish genau
+         so passiert). Sie MUSS eine echte Datei bleiben, weil sie als eigener Prozess
+         gestartet wird. Gleiches gilt fuer imdiskinst.exe und PawnIO_setup.exe unten. -->
+    <None Include="..\..\vendor\memtest_vulkan\memtest_vulkan.exe">
+      <Link>gpu-tools\memtest_vulkan\memtest_vulkan.exe</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </None>
+    <None Include="..\..\vendor\memtest_vulkan\LICENSE.txt">
+      <Link>gpu-tools\memtest_vulkan\LICENSE.txt</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ImDisk Virtual Disk Driver (GPL-2.0, github.com/LTRData/ImDisk) - Motor fuers
+         RAM-Disk-Modul. Anders als memtest_vulkan ein echter Kernel-Treiber, deshalb NICHT
+         still im Hintergrund installiert - Toolbox X liefert nur den unveraenderten
+         offiziellen Installer mit, RamDiskView startet ihn erst auf ausdruecklichen Klick
+         ("ImDisk installieren"), der Installer-Dialog + UAC laeuft ganz normal fuer sich. -->
+    <None Include="..\..\vendor\imdisk\imdiskinst.exe">
+      <Link>ramdisk-tools\imdisk\imdiskinst.exe</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </None>
+    <None Include="..\..\vendor\imdisk\LICENSE.md">
+      <Link>ramdisk-tools\imdisk\LICENSE.md</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\vendor\imdisk\HERKUNFT.txt">
+      <Link>ramdisk-tools\imdisk\HERKUNFT.txt</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- PawnIO (GPL-2.0, github.com/namazso/PawnIO) - Treiber fuer echte CPU/GPU-
+         Temperaturen ueber LibreHardwareMonitorLib. Gleiches Prinzip wie bei ImDisk:
+         offizieller, unveraenderter Installer liegt bei, wird aber NUR auf ausdruecklichen
+         Klick gestartet, nie still im Hintergrund (s. HardwareMonitorService/TemperatureView). -->
+    <None Include="..\..\vendor\pawnio\PawnIO_setup.exe">
+      <Link>hardware-tools\pawnio\PawnIO_setup.exe</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </None>
+    <None Include="..\..\vendor\pawnio\LICENSE.md">
+      <Link>hardware-tools\pawnio\LICENSE.md</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\vendor\pawnio\HERKUNFT.txt">
+      <Link>hardware-tools\pawnio\HERKUNFT.txt</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

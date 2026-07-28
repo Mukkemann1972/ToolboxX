@@ -1,0 +1,28 @@
+<Project>
+
+  <!--
+    Läuft nach dem SDK-Standardglob (Directory.Build.targets wird zuletzt eingelesen,
+    nach Sdk.targets) - erst hier existieren die Compile/None/Page-Items überhaupt, ein
+    Remove in Directory.Build.props (zu früh) entfernt dagegen nichts.
+
+    Der SDK-Standardausschluss für generierte Build-Dateien kennt nur den gerade AKTIVEN
+    BaseOutputPath/BaseIntermediateOutputPath (s. Directory.Build.props) - beim
+    Free-Build also nur "bin/obj", nicht "bin-pro/obj-pro" (und umgekehrt beim
+    Pro-Build). Reste des jeweils ANDEREN Build-Durchgangs (z.B. eine dort liegende,
+    automatisch generierte AssemblyInfo.cs) blieben dadurch für die Quelldatei-Erkennung
+    sichtbar und führten zu doppelten Assembly-Attributen, sobald zwischen Pro- und
+    Free-Build ohne "dotnet clean" gewechselt wurde. Deshalb hier BEIDE Ordnerpaare immer
+    explizit ausschließen, unabhängig davon, welches gerade aktiv ist.
+
+    $(MSBuildProjectDirectory) ist hier nötig, weil relative Pfade in einer geteilten
+    Directory.Build.*-Datei sich sonst relativ zu IHREM EIGENEN Ordner (src/) auflösen,
+    nicht zum jeweiligen Projektordner (src/PC-ToolboxCore/ usw.).
+  -->
+  <ItemGroup>
+    <Compile Remove="$(MSBuildProjectDirectory)\bin\**;$(MSBuildProjectDirectory)\obj\**;$(MSBuildProjectDirectory)\bin-pro\**;$(MSBuildProjectDirectory)\obj-pro\**" />
+    <EmbeddedResource Remove="$(MSBuildProjectDirectory)\bin\**;$(MSBuildProjectDirectory)\obj\**;$(MSBuildProjectDirectory)\bin-pro\**;$(MSBuildProjectDirectory)\obj-pro\**" />
+    <None Remove="$(MSBuildProjectDirectory)\bin\**;$(MSBuildProjectDirectory)\obj\**;$(MSBuildProjectDirectory)\bin-pro\**;$(MSBuildProjectDirectory)\obj-pro\**" />
+    <Page Remove="$(MSBuildProjectDirectory)\bin\**;$(MSBuildProjectDirectory)\obj\**;$(MSBuildProjectDirectory)\bin-pro\**;$(MSBuildProjectDirectory)\obj-pro\**" />
+  </ItemGroup>
+
+</Project>

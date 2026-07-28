@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Referenziert bewusst NUR PC-ToolboxCore (plattformneutral), nicht PC-Toolbox selbst
+    (net8.0-windows+WPF laesst sich zwar auf dem Pi kompilieren, aber NICHT ausfuehren).
+    So laufen diese Tests echt, auch hier auf dem Raspberry Pi (Linux) - nicht nur Compile-Check.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>PCToolboxCore.Tests</RootNamespace>
+    <!-- Eigene bin/obj-Ordner fuer den Pro-Testlauf stehen in src/Directory.Build.props. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PC-ToolboxCore\PC-ToolboxCore.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(ProBuild)' != 'true'">
+    <!-- Tests fuer Pro-only Kernlogik gehoeren nicht in einen Free-Checkout/-Export -
+         spiegelt den Ausschluss in PC-Toolbox.csproj/PC-ToolboxCore.csproj. -->
+    <Compile Remove="Pro\**\*.cs" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,32 @@
+<Project>
+
+  <!--
+    Gilt automatisch für alle drei Projekte in src/ (PC-Toolbox, PC-ToolboxCore,
+    PC-Toolbox.Tests), weil MSBuild jede Directory.Build.props im Verzeichnisbaum
+    aufwärts von jeder .csproj automatisch einliest - VOR der eigentlichen .csproj UND
+    vor Microsoft.Common.props. Genau das ist hier nötig: BaseOutputPath/
+    BaseIntermediateOutputPath müssen vor Microsoft.Common.props gesetzt sein, sonst
+    schreibt NuGet-Restore trotzdem in den alten obj/-Ordner (MSBuild-Warnung MSB3539).
+    In einer normalen PropertyGroup innerhalb der .csproj selbst kam es deshalb beim
+    Wechsel zwischen Pro- und Free-Build ohne "dotnet clean" dazwischen zu doppelten
+    AssemblyInfo-Attributen.
+
+    Zweck: Free- und Pro-Build haben denselben AssemblyName (s. PC-Toolbox.csproj-
+    Kommentar - ein Unterschied hätte den zur Laufzeit geparsten Theme-Loader kaputt
+    gemacht) und würden sich damit denselben bin/obj-Ordner teilen. Ohne saubere
+    Trennung könnte eine als "Free" gebaute DLL Pro-Codereste aus einem vorherigen
+    Pro-Build enthalten - genau das ist beim ersten Testlauf auch passiert (grep fand
+    kurz eine Pro-only-Klasse in der "Free"-DLL). Getrennte Ordner machen das
+    strukturell unmöglich statt sich auf Disziplin beim Aufräumen zu verlassen.
+  -->
+  <PropertyGroup Condition="'$(ProBuild)'=='true'">
+    <BaseOutputPath>bin-pro\</BaseOutputPath>
+    <BaseIntermediateOutputPath>obj-pro\</BaseIntermediateOutputPath>
+  </PropertyGroup>
+
+  <!-- Der Ausschluss der bin/obj-Ordnerpaare selbst steht bewusst in Directory.Build.targets,
+       nicht hier: Items, die HIER (in .props, importiert VOR dem SDK-Standardglob) entfernt
+       werden, entfernen nichts, weil zu diesem Zeitpunkt noch gar keine Compile-Items
+       existieren. Erst .targets läuft nach dem Standardglob. -->
+
+</Project>

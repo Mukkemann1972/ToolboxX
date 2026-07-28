@@ -1,0 +1,52 @@
+<UserControl x:Class="PCToolbox.Modules.EntstehungView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="4" MaxWidth="720" HorizontalAlignment="Left">
+
+            <TextBlock FontSize="20" FontWeight="Bold" FontFamily="{StaticResource DisplayFontFamily}" Margin="0,0,0,4">
+                <Run x:Name="TitelTeil1" />
+                <Run x:Name="TitelToolboxX" Foreground="{StaticResource AccentBrush}" Text="Toolbox X" />
+                <Run x:Name="TitelTeil2" />
+            </TextBlock>
+            <TextBlock x:Name="UntertitelText" FontFamily="{StaticResource AccentFontFamily}" FontSize="12"
+                       Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,18" />
+
+            <TextBlock x:Name="EinleitungText" TextWrapping="Wrap" Margin="0,0,0,16" />
+
+            <Border Background="{StaticResource BgCardBrush}" CornerRadius="10" Padding="18" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock FontWeight="Bold" FontSize="15" Margin="0,0,0,6">
+                        <Run x:Name="AlexName" Text="👤  Alex (aka Mukkemann)" />
+                        <Run x:Name="AlexRolle" Foreground="{StaticResource TextMutedBrush}" FontWeight="Normal" FontSize="12" />
+                    </TextBlock>
+                    <TextBlock x:Name="AlexText" TextWrapping="Wrap" Foreground="{StaticResource TextMutedBrush}" FontSize="12" />
+                </StackPanel>
+            </Border>
+
+            <Border Background="{StaticResource BgCardBrush}" CornerRadius="10" Padding="18" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock FontWeight="Bold" FontSize="15" Margin="0,0,0,6">
+                        <Run Text="🤖  Claude" />
+                        <Run x:Name="ClaudeRolle" Foreground="{StaticResource TextMutedBrush}" FontWeight="Normal" FontSize="12" />
+                    </TextBlock>
+                    <TextBlock x:Name="ClaudeText" TextWrapping="Wrap" Foreground="{StaticResource TextMutedBrush}" FontSize="12" />
+                </StackPanel>
+            </Border>
+
+            <Border Background="{StaticResource BgCardBrush}" CornerRadius="10" Padding="18" Margin="0,0,0,20">
+                <StackPanel>
+                    <TextBlock FontWeight="Bold" FontSize="15" Margin="0,0,0,6">
+                        <Run Text="🔍  Hermes" />
+                        <Run x:Name="HermesRolle" Foreground="{StaticResource TextMutedBrush}" FontWeight="Normal" FontSize="12" />
+                    </TextBlock>
+                    <TextBlock x:Name="HermesText" TextWrapping="Wrap" Foreground="{StaticResource TextMutedBrush}" FontSize="12" />
+                </StackPanel>
+            </Border>
+
+            <TextBlock x:Name="PerspektivenText" TextWrapping="Wrap" FontStyle="Italic" Foreground="{StaticResource TextMutedBrush}" FontSize="12" Margin="0,0,0,4" />
+
+            <TextBlock x:Name="FusszeileText" TextWrapping="Wrap" Foreground="{StaticResource TextMutedBrush}" FontSize="11" Margin="0,16,0,0" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

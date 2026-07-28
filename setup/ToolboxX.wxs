@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Toolbox X - Setup-Programm (WiX Toolset v5)
+
+    Gebaut wird NICHT direkt aus dem Build-Ordner, sondern aus einem
+    Release-Publish (self-contained, Single-File) - siehe ../build-setup.ps1.
+    Der Grund steht dort: ohne self-contained muesste der Nutzer erst die
+    .NET-8-Desktop-Runtime installieren, und genau das ist fuer die Zielgruppe
+    ("Leute, die niemanden zum Fragen haben") die Huerde, an der es scheitert.
+
+    Bewusste Entscheidungen, passend zur Philosophie des Projekts:
+      - KEIN Windows-Dienst, KEIN Autostart-Eintrag. Toolbox X ist ein
+        Werkzeug, das man startet - nichts, was dauerhaft mitlaeuft. Genau
+        das kritisiert das Autostart-/Dienste-Modul an anderer Software.
+      - KEINE stille Treiber-Installation. ImDisk und PawnIO werden nur
+        MITGELIEFERT und erst auf ausdruecklichen Klick im Programm
+        gestartet (mit eigenem Installer-Dialog + UAC).
+      - Desktop-Verknuepfung ist ABWAEHLBAR (eigenes Feature, Level 2),
+        nicht ungefragt hingesetzt.
+      - Deinstallation entfernt genau das, was installiert wurde. Die
+        Snapshots unter %ProgramData%\PC-Toolbox\Restore bleiben absichtlich
+        liegen: das sind Sicherungen der Nutzerdaten, die darf ein
+        Deinstallations-Vorgang nicht mitnehmen.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+    <Package
+        Name="Toolbox X"
+        Manufacturer="Alexander Tkaczenko"
+        Version="$(var.ProduktVersion)"
+        UpgradeCode="7B4E9C21-3A6D-4F58-9E17-2C5B8D0A6F34"
+        Scope="perMachine"
+        Compressed="yes"
+        Language="1031">
+
+        <SummaryInformation
+            Description="Toolbox X - Zukunfts-Toolsammlung fuers Windows-System. Kostenlos, Open Source, kein Abo."
+            Keywords="Toolbox X;Diagnose;Reparatur;Autostart;SMART;Uninstaller;Open Source"
+            Manufacturer="Alexander Tkaczenko" />
+
+        <!-- Alles in EINE MSI-Datei, kein separates CAB daneben -->
+        <MediaTemplate EmbedCab="yes" />
+
+        <!-- Vorherige Version beim Update automatisch ersetzen statt daneben installieren.
+             AllowSameVersionUpgrades erlaubt zusaetzlich, eine gleiche Version drueber zu
+             installieren - waehrend der Entwicklung staendig gebraucht, sonst muesste man
+             vor jedem Test erst deinstallieren. Preis dafuer ist die Warnung ICE61
+             ("Maximum version is not less than the current product"), die beim Bauen
+             bewusst stehen bleibt: sie beschreibt genau dieses gewollte Verhalten. -->
+        <MajorUpgrade
+            DowngradeErrorMessage="Es ist bereits eine neuere Version von Toolbox X installiert. Bitte diese zuerst deinstallieren."
+            AllowSameVersionUpgrades="yes" />
+
+        <!-- Braucht Windows 10 oder neuer (WPF/.NET 8, und die Module setzen
+             moderne WMI-Klassen voraus). Ehrliche Meldung statt halb zu laufen. -->
+        <Launch
+            Condition="Installed OR (VersionNT &gt;= 603)"
+            Message="Toolbox X braucht Windows 10 oder neuer." />
+
+        <Icon Id="ToolboxXIcon" SourceFile="$(var.AssetsDir)\ToolboxX.ico" />
+        <Property Id="ARPPRODUCTICON" Value="ToolboxXIcon" />
+        <Property Id="ARPHELPLINK" Value="https://github.com/Mukkemann1972/raspi-sandbox" />
+        <Property Id="ARPNOREPAIR" Value="1" />
+
+        <!-- === Zielverzeichnisse === -->
+        <StandardDirectory Id="ProgramFiles6432Folder">
+            <Directory Id="INSTALLFOLDER" Name="Toolbox X">
+                <Directory Id="ThemesDir" Name="Themes" />
+                <Directory Id="GpuToolsDir" Name="gpu-tools">
+                    <Directory Id="MemtestDir" Name="memtest_vulkan" />
+                </Directory>
+                <Directory Id="RamdiskToolsDir" Name="ramdisk-tools">
+                    <Directory Id="ImdiskDir" Name="imdisk" />
+                </Directory>
+                <Directory Id="HardwareToolsDir" Name="hardware-tools">
+                    <Directory Id="PawnioDir" Name="pawnio" />
+                </Directory>
+            </Directory>
+        </StandardDirectory>
+
+        <!-- === Programm selbst === -->
+        <ComponentGroup Id="Programm">
+            <Component Directory="INSTALLFOLDER">
+                <File Id="ToolboxXExe" Name="PC-Toolbox.exe"
+                      Source="$(var.PublishDir)\PC-Toolbox.exe" KeyPath="yes" />
+            </Component>
+
+            <!-- Verknuepfungen bewusst in EIGENEN Komponenten mit HKCU-Schluesselpfad,
+                 nicht in der Komponente der EXE. Grund: der Windows-Installer verlangt
+                 fuer nicht-advertised Verknuepfungen genau das (ICE43) - eine Datei als
+                 Schluesselpfad wird abgelehnt, ebenso ein HKLM-Schluessel (ICE57).
+                 Advertised Verknuepfungen waeren die Alternative, loesen aber beim
+                 Anklicken eine Reparaturpruefung aus - fuer ein Diagnosewerkzeug
+                 unnoetiger Ballast. Das Symbol selbst landet bei perMachine im
+                 Startmenue aller Benutzer, nur der Merker haengt am installierenden. -->
+            <Component Directory="INSTALLFOLDER" Guid="C8A1F3E7-5B24-4D96-8A0F-1E7C3B9D5A28">
+                <Shortcut Id="StartmenueVerknuepfung"
+                          Directory="ProgramMenuFolder"
+                          Name="Toolbox X"
+                          Description="Diagnose und Reparatur fuers Windows-System"
+                          Target="[INSTALLFOLDER]PC-Toolbox.exe"
+                          WorkingDirectory="INSTALLFOLDER"
+                          Icon="ToolboxXIcon"
+                          Advertise="no" />
+                <RegistryValue Root="HKCU" Key="Software\ToolboxX"
+                               Name="StartmenueVerknuepfung" Type="integer" Value="1" KeyPath="yes" />
+            </Component>
+
+            <!-- Die zwei Theme-Dateien werden zur LAUFZEIT als Text gelesen und
+                 geparst (Akzentfarben-Platzhalter, s. App.xaml.cs) - sie muessen
+                 deshalb echte Dateien neben der EXE sein, nicht eingebettet. -->
+            <Component Directory="ThemesDir">
+                <File Id="ThemeDunkel" Name="ToolboxXTheme.xaml"
+                      Source="$(var.PublishDir)\Themes\ToolboxXTheme.xaml" KeyPath="yes" />
+            </Component>
+            <Component Directory="ThemesDir">
+                <File Id="ThemeHell" Name="ToolboxXThemeLight.xaml"
+                      Source="$(var.PublishDir)\Themes\ToolboxXThemeLight.xaml" KeyPath="yes" />
+            </Component>
+        </ComponentGroup>
+
+        <!-- === Mitgelieferte Fremd-Werkzeuge ===
+             Jeweils unveraendert samt Lizenz/Herkunft. Werden NUR auf Klick im
+             Programm gestartet, hier passiert nichts automatisch. -->
+        <ComponentGroup Id="FremdWerkzeuge">
+            <Component Directory="MemtestDir">
+                <File Id="MemtestExe" Name="memtest_vulkan.exe"
+                      Source="$(var.PublishDir)\gpu-tools\memtest_vulkan\memtest_vulkan.exe" KeyPath="yes" />
+            </Component>
+            <Component Directory="MemtestDir">
+                <File Id="MemtestLizenz" Name="LICENSE.txt"
+                      Source="$(var.PublishDir)\gpu-tools\memtest_vulkan\LICENSE.txt" KeyPath="yes" />
+            </Component>
+
+            <Component Directory="ImdiskDir">
+                <File Id="ImdiskExe" Name="imdiskinst.exe"
+                      Source="$(var.PublishDir)\ramdisk-tools\imdisk\imdiskinst.exe" KeyPath="yes" />
+            </Component>
+            <Component Directory="ImdiskDir">
+                <File Id="ImdiskLizenz" Name="LICENSE.md"
+                      Source="$(var.PublishDir)\ramdisk-tools\imdisk\LICENSE.md" KeyPath="yes" />
+            </Component>
+            <Component Directory="ImdiskDir">
+                <File Id="ImdiskHerkunft" Name="HERKUNFT.txt"
+                      Source="$(var.PublishDir)\ramdisk-tools\imdisk\HERKUNFT.txt" KeyPath="yes" />
+            </Component>
+
+            <Component Directory="PawnioDir">
+                <File Id="PawnioExe" Name="PawnIO_setup.exe"
+                      Source="$(var.PublishDir)\hardware-tools\pawnio\PawnIO_setup.exe" KeyPath="yes" />
+            </Component>
+            <Component Directory="PawnioDir">
+                <File Id="PawnioLizenz" Name="LICENSE.md"
+                      Source="$(var.PublishDir)\hardware-tools\pawnio\LICENSE.md" KeyPath="yes" />
+            </Component>
+            <Component Directory="PawnioDir">
+                <File Id="PawnioHerkunft" Name="HERKUNFT.txt"
+                      Source="$(var.PublishDir)\hardware-tools\pawnio\HERKUNFT.txt" KeyPath="yes" />
+            </Component>
+        </ComponentGroup>
+
+        <!-- === Desktop-Verknuepfung (abwaehlbar, eigenes Feature) ===
+             Muss eine eigene Komponente sein, damit sie sich abwaehlen laesst - und
+             braucht deshalb einen Registry-Schluesselpfad statt einer Datei.
+             HKCU ist hier der von der Installer-Pruefung selbst verlangte Weg
+             (ICE43: nicht-advertised Verknuepfungen -> Schluesselpfad unter HKCU).
+             Folge, die man kennen muss: der Merker haengt am installierenden
+             Benutzer. Das Desktop-Symbol selbst liegt bei perMachine trotzdem
+             auf dem Desktop aller Benutzer. -->
+        <ComponentGroup Id="DesktopVerknuepfung">
+            <Component Directory="INSTALLFOLDER" Guid="D9B2A4F8-6C35-4E07-9B1A-2F8D4CAE6B39">
+                <Shortcut Id="DesktopIcon"
+                          Directory="DesktopFolder"
+                          Name="Toolbox X"
+                          Description="Diagnose und Reparatur fuers Windows-System"
+                          Target="[INSTALLFOLDER]PC-Toolbox.exe"
+                          WorkingDirectory="INSTALLFOLDER"
+                          Icon="ToolboxXIcon"
+                          Advertise="no" />
+                <RegistryValue Root="HKCU" Key="Software\ToolboxX"
+                               Name="DesktopVerknuepfung" Type="integer" Value="1" KeyPath="yes" />
+            </Component>
+        </ComponentGroup>
+
+        <!-- === Features === -->
+        <Feature Id="Hauptprogramm"
+                 Title="Toolbox X"
+                 Description="Das Programm selbst, inklusive der mitgelieferten Werkzeuge fuer VRAM-Test, RAM-Disk und Temperatursensoren."
+                 Level="1"
+                 AllowAbsent="no"
+                 ConfigurableDirectory="INSTALLFOLDER">
+            <ComponentGroupRef Id="Programm" />
+            <ComponentGroupRef Id="FremdWerkzeuge" />
+        </Feature>
+
+        <Feature Id="Desktop"
+                 Title="Verknuepfung auf dem Desktop"
+                 Description="Legt zusaetzlich ein Symbol auf den Desktop."
+                 Level="2">
+            <ComponentGroupRef Id="DesktopVerknuepfung" />
+        </Feature>
+
+        <!-- === Oberflaeche === -->
+        <ui:WixUI Id="WixUI_FeatureTree" InstallDirectory="INSTALLFOLDER" />
+        <WixVariable Id="WixUILicenseRtf" Value="$(var.SetupDir)\Lizenz.rtf" />
+
+    </Package>
+</Wix>

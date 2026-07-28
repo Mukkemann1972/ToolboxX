@@ -1,0 +1,133 @@
+<UserControl x:Class="PCToolbox.Modules.CommanderView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             KeyDown="Commander_KeyDown">
+    <DockPanel>
+
+        <StackPanel DockPanel.Dock="Top">
+            <TextBlock x:Name="TitelText" FontSize="20" FontWeight="Bold" FontFamily="{StaticResource DisplayFontFamily}" Margin="0,0,0,4" />
+            <TextBlock x:Name="EinleitungText" Foreground="{StaticResource TextMutedBrush}" FontSize="12" Margin="0,0,0,10"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <!-- === Aktionsleiste === -->
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <Button x:Name="KopierenButton" Click="Kopieren_Click" Padding="14,7" Margin="0,0,10,0" />
+                <Button x:Name="VerschiebenButton" Click="Verschieben_Click" Padding="14,7" Margin="0,0,10,0" />
+                <Button x:Name="UmbenennenButton" Click="Umbenennen_Click" Padding="14,7" Margin="0,0,10,0" />
+                <Button x:Name="NeuerOrdnerButton" Click="NeuerOrdner_Click" Padding="14,7" Margin="0,0,10,0" />
+                <Button x:Name="AlsZipButton" Click="AlsZip_Click" Padding="14,7" Margin="0,0,10,0" />
+                <Button x:Name="LoeschenButton" Click="Loeschen_Click" Padding="14,7" />
+            </StackPanel>
+
+            <!-- Eingabezeile für Umbenennen/Neuer Ordner - erscheint nur bei Bedarf -->
+            <StackPanel x:Name="EingabePanel" Orientation="Horizontal" Visibility="Collapsed" Margin="0,0,0,8">
+                <TextBlock x:Name="EingabeBeschriftung" VerticalAlignment="Center" Margin="0,0,10,0" />
+                <TextBox x:Name="EingabeFeld" Width="260" Padding="6,4" Margin="0,0,10,0"
+                         KeyDown="EingabeFeld_KeyDown" />
+                <Button x:Name="EingabeOkButton" Click="EingabeOk_Click" Padding="14,5" Margin="0,0,10,0" />
+                <Button x:Name="EingabeAbbrechenButton" Click="EingabeAbbrechen_Click" Padding="14,5" />
+            </StackPanel>
+
+            <TextBlock x:Name="StatusText" TextWrapping="Wrap" FontSize="12" />
+        </StackPanel>
+
+        <!-- === Die beiden Seiten === -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Linke Seite -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <DockPanel Grid.Row="0" Margin="0,0,0,6">
+                    <ComboBox x:Name="LinksLaufwerk" DockPanel.Dock="Left" Width="70" Margin="0,0,8,0"
+                              SelectionChanged="Laufwerk_Gewechselt" Tag="links" />
+                    <Button x:Name="LinksHochButton" DockPanel.Dock="Right" Content="⬆️" Width="34" Click="Hoch_Click" Tag="links" />
+                    <TextBox x:Name="LinksPfad" Padding="6,4" KeyDown="Pfad_KeyDown" Tag="links" />
+                </DockPanel>
+
+                <DockPanel Grid.Row="1" Margin="0,0,0,4">
+                    <TextBlock x:Name="LinksTitel" DockPanel.Dock="Left" FontWeight="SemiBold" FontSize="12"
+                               VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBox x:Name="LinksFilter" Tag="links" Padding="4,2" FontSize="12"
+                             TextChanged="Filter_TextChanged" />
+                </DockPanel>
+
+                <ListView Grid.Row="2" x:Name="LinksListe" SelectionMode="Extended" Tag="links"
+                          GotFocus="Liste_Fokus" MouseDoubleClick="Liste_DoppelKlick"
+                          Background="{StaticResource BgCardBrush}" BorderThickness="0">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn x:Name="LinksNameSpalte" Width="240">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" ToolTip="{Binding Hinweis}">
+                                            <TextBlock Text="{Binding Symbol}" Margin="0,0,6,0" />
+                                            <TextBlock Text="{Binding Name}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn x:Name="LinksGroesseSpalte" Width="90" DisplayMemberBinding="{Binding GroesseAnzeige}" />
+                            <GridViewColumn x:Name="LinksGeaendertSpalte" Width="120" DisplayMemberBinding="{Binding GeaendertAnzeige}" />
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </Grid>
+
+            <!-- Rechte Seite -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <DockPanel Grid.Row="0" Margin="0,0,0,6">
+                    <ComboBox x:Name="RechtsLaufwerk" DockPanel.Dock="Left" Width="70" Margin="0,0,8,0"
+                              SelectionChanged="Laufwerk_Gewechselt" Tag="rechts" />
+                    <Button x:Name="RechtsHochButton" DockPanel.Dock="Right" Content="⬆️" Width="34" Click="Hoch_Click" Tag="rechts" />
+                    <TextBox x:Name="RechtsPfad" Padding="6,4" KeyDown="Pfad_KeyDown" Tag="rechts" />
+                </DockPanel>
+
+                <DockPanel Grid.Row="1" Margin="0,0,0,4">
+                    <TextBlock x:Name="RechtsTitel" DockPanel.Dock="Left" FontWeight="SemiBold" FontSize="12"
+                               VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBox x:Name="RechtsFilter" Tag="rechts" Padding="4,2" FontSize="12"
+                             TextChanged="Filter_TextChanged" />
+                </DockPanel>
+
+                <ListView Grid.Row="2" x:Name="RechtsListe" SelectionMode="Extended" Tag="rechts"
+                          GotFocus="Liste_Fokus" MouseDoubleClick="Liste_DoppelKlick"
+                          Background="{StaticResource BgCardBrush}" BorderThickness="0">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn x:Name="RechtsNameSpalte" Width="240">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" ToolTip="{Binding Hinweis}">
+                                            <TextBlock Text="{Binding Symbol}" Margin="0,0,6,0" />
+                                            <TextBlock Text="{Binding Name}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn x:Name="RechtsGroesseSpalte" Width="90" DisplayMemberBinding="{Binding GroesseAnzeige}" />
+                            <GridViewColumn x:Name="RechtsGeaendertSpalte" Width="120" DisplayMemberBinding="{Binding GeaendertAnzeige}" />
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </Grid>
+        </Grid>
+    </DockPanel>
+</UserControl>

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Bewusst plattformneutral (net8.0, KEIN -windows, kein WPF/Registry-Paket):
+    Diese Bibliothek enthaelt nur reine Logik ohne Windows-API-Abhaengigkeit,
+    damit sie auf JEDEM Betriebssystem kompiliert UND ausgefuehrt werden kann -
+    insbesondere auf dem Raspberry Pi (Linux), wo net8.0-windows+UseWPF-Projekte
+    zwar cross-kompilieren, aber NICHT laufen (keine WindowsDesktop-Runtime auf Linux).
+    So bekommen PC-Toolbox.Tests echte, lauffaehige Tests statt nur einen Compile-Check.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>PCToolboxCore</RootNamespace>
+    <!-- Eigene bin/obj-Ordner fuer den Pro-Build stehen in src/Directory.Build.props. -->
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(ProBuild)' != 'true'">
+    <!-- Spiegelt den Ausschluss aus PC-Toolbox.csproj: reine Kern-Logik, die nur ein
+         Pro-Feature nutzt (z.B. GroessenAnteil fuers Ordnergroesse-Modul), gehoert
+         ebenfalls unter Pro/ - sonst wuerde sie trotz Build-Zeit-Trennung der WPF-Module
+         still in jede Free-DLL mitkompiliert. -->
+    <Compile Remove="Pro\**\*.cs" />
+  </ItemGroup>
+
+</Project>

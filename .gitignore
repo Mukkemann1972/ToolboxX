@@ -1,0 +1,29 @@
+# .NET Build artifacts
+build/
+bin/
+obj/
+bin-pro/
+obj-pro/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Test results
+TestResults/
+
+# NuGet packages
+packages/
+*.nupkg
+
+# Rider/VS Code
+.idea/
+.vscode/
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs
+*.log

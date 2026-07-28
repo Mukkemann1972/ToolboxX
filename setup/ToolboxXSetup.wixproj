@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <!--
+    Setup-Projekt fuer Toolbox X (WiX Toolset v5).
+
+    NICHT direkt bauen - der Installer braucht einen fertigen Release-Publish
+    als Quelle. Stattdessen:  ..\build-setup.ps1
+    Das Skript publisht zuerst und ruft dann diesen Build mit den passenden
+    Pfaden auf.
+
+    Voraussetzung einmalig: das WiX-Toolset 5.0.2 als globales dotnet-Tool
+    installieren (Befehl steht in build-setup.ps1).
+  -->
+
+  <PropertyGroup>
+    <OutputName>ToolboxX-Setup</OutputName>
+    <OutputType>Package</OutputType>
+
+    <!-- x64 ist Pflicht, nicht Kosmetik: ohne das baut WiX ein 32-Bit-Paket, und dann
+         zeigt ProgramFiles6432Folder auf "C:\Program Files (x86)". Die Anwendung ist
+         aber ein self-contained win-x64-Build und gehoert nach "C:\Program Files".
+         Beim ersten Sandbox-Test genau so passiert: Installation meldete Erfolg,
+         Startmenue-Eintrag war da, die Dateien lagen aber unter (x86). -->
+    <Platform>x64</Platform>
+    <OutputPath>$(MSBuildProjectDirectory)\bin\</OutputPath>
+    <IntermediateOutputPath>$(MSBuildProjectDirectory)\obj\</IntermediateOutputPath>
+
+    <!-- Wird von build-setup.ps1 ueberschrieben. Die Vorgabe hier passt zum
+         Standard-Publish-Pfad, damit ein Direktaufruf nicht ins Leere laeuft. -->
+    <PublishDir Condition="'$(PublishDir)' == ''">$(MSBuildProjectDirectory)\..\build\publish</PublishDir>
+    <ProduktVersion Condition="'$(ProduktVersion)' == ''">0.5.0</ProduktVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Als WiX-Praeprozessor-Variablen an die .wxs weitergeben -->
+    <DefineConstants>
+      PublishDir=$(PublishDir);
+      AssetsDir=$(MSBuildProjectDirectory)\..\src\PC-Toolbox\Assets;
+      SetupDir=$(MSBuildProjectDirectory);
+      ProduktVersion=$(ProduktVersion)
+    </DefineConstants>
+  </PropertyGroup>
+
+  <!-- Kein <Compile Include="ToolboxX.wxs" /> hier: das WiX-SDK sammelt *.wxs im
+       Projektordner schon selbst ein. Ein zusaetzlicher Eintrag kompiliert die Datei
+       doppelt und bricht mit "Multiple entry sections" ab. -->
+
+  <ItemGroup>
+    <!-- UI-Erweiterung fuer die Installer-Dialoge (Lizenz, Zielordner, Features) -->
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+  </ItemGroup>
+</Project>

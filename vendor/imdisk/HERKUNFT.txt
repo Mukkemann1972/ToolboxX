@@ -1,0 +1,14 @@
+ImDisk Virtual Disk Driver
+Autor: Olof Lagerkvist (LTRData)
+Quelle: https://www.ltr-data.se/opencode.html/ (Original-Download: https://static.ltr-data.se/files/imdiskinst.exe)
+Projekt/Quellcode: https://github.com/LTRData/ImDisk
+Version: 2.1.2 (Stand 11.05.2026, offizielle stabile Version)
+Lizenz: GNU General Public License v2.0 (siehe LICENSE.md in diesem Ordner)
+
+imdiskinst.exe ist der UNVERÄNDERTE offizielle Installer, unverändert
+mitgeliefert (SHA-256 unten zum Nachprüfen). Toolbox X führt ihn nur auf
+ausdrücklichen Klick ("ImDisk installieren"-Knopf im RAM-Disk-Modul) aus -
+kein automatischer/stiller Hintergrund-Install, der Installer-Dialog von
+ImDisk selbst läuft ganz normal ab, mit eigener UAC-Bestätigung.
+
+SHA-256: 11d3423f3971b4d7a2bbda538e47998be901199546b36455315f22d3fc8b8a04

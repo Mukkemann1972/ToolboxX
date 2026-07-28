@@ -1,0 +1,7 @@
+<!-- Kein StartupUri mehr: das Theme (Farbpalette + Akzentfarbe aus den
+     Einstellungen) muss VOR dem ersten Fenster geladen sein, deshalb baut
+     App.xaml.cs (OnStartup) MainWindow selbst - s. dortigen Kommentar. -->
+<Application x:Class="PCToolbox.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+</Application>

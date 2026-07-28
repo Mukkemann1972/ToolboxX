@@ -1,0 +1,140 @@
+<Window x:Class="PCToolbox.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Toolbox X" Height="640" Width="960" MinWidth="760" MinHeight="480"
+        WindowStyle="None" ResizeMode="CanResizeWithGrip" WindowStartupLocation="CenterScreen"
+        Icon="Assets/ToolboxX.ico"
+        Background="{StaticResource BgDeepBrush}">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="40" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" />
+    </shell:WindowChrome.WindowChrome>
+
+    <DockPanel>
+
+        <!-- === Eigene Titelleiste === -->
+        <Grid DockPanel.Dock="Top" Height="40" Background="{StaticResource BgPanelBrush}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Zeichen + Schriftzug aus Alex' Logo in EINEM schwarzen Feld: beide PNGs
+                 haben schwarzen Grund, einzeln gesetzt waeren zwei dunkle Flecken auf dem
+                 Dunkelblau der Titelleiste zu sehen - zusammen wirkt es als ein Logo-Stueck. -->
+            <!-- x:Name auf Bild + TextBlock: nur damit ein Pro-Build zur Laufzeit (s.
+                 MainWindow.xaml.cs #if PRO_BUILD) das Pro-Zeichen einsetzen und "PRO"
+                 anhaengen kann - im Free-Build bleibt dieser Codepfad unkompiliert. -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
+                <Border CornerRadius="5" Background="#000000" Padding="4" Margin="0,0,9,0">
+                    <Image x:Name="TitelZeichenBild" Source="Assets/ToolboxX-Zeichen.png" Stretch="Uniform" Height="22" />
+                </Border>
+                <TextBlock x:Name="TitelTextBlock" VerticalAlignment="Center"
+                           FontFamily="{StaticResource DisplayFontFamily}" FontWeight="Bold" FontSize="14">
+                    <Run Text="TOOLBOX " Foreground="{StaticResource TextPrimaryBrush}" />
+                    <Run Text="X" Foreground="{StaticResource AccentBrush}" />
+                </TextBlock>
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                <Button Content="—" Style="{StaticResource TitleBarButtonStyle}" Click="Minimieren_Click" />
+                <Button Content="☐" Style="{StaticResource TitleBarButtonStyle}" Click="Maximieren_Click" />
+                <Button Content="✕" Style="{StaticResource CloseButtonStyle}" Click="Schliessen_Click" />
+            </StackPanel>
+        </Grid>
+
+        <!-- === Status-Leiste unten === -->
+        <StatusBar DockPanel.Dock="Bottom" Background="{StaticResource BgPanelBrush}">
+            <StatusBarItem>
+                <TextBlock x:Name="StatusZeile" Foreground="{StaticResource TextMutedBrush}" FontSize="11" />
+            </StatusBarItem>
+        </StatusBar>
+
+        <Grid Background="{StaticResource BgDeepBrush}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="190" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- === Sidebar === -->
+            <!-- SidebarPanel: der Name wird nur gebraucht, damit ein Pro-Build zur Laufzeit
+                 (per Code, s. MainWindow.xaml.cs #if PRO_BUILD) eigene Eintraege anhaengen kann -
+                 im Free-Build bleibt dieser Codepfad komplett unkompiliert, hier steht also
+                 nichts Pro-Spezifisches drin. -->
+            <StackPanel x:Name="SidebarPanel" Grid.Column="0" Background="{StaticResource BgPanelBrush}" Margin="0,10,0,0">
+                <RadioButton x:Name="NavUebersicht" GroupName="Nav" Style="{StaticResource SidebarItemStyle}"
+                             Checked="ZeigeUebersicht_Click">
+                    <TextBlock x:Name="NavUebersichtText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeDashboard_Click">
+                    <TextBlock x:Name="NavSystemText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeDiskCheck_Click">
+                    <TextBlock x:Name="NavLaufwerkeText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeTemperature_Click">
+                    <TextBlock x:Name="NavTemperaturText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeGpuDiagnose_Click">
+                    <TextBlock x:Name="NavGpuDiagnoseText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeRamDisk_Click">
+                    <TextBlock x:Name="NavRamDiskText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeAutostart_Click">
+                    <TextBlock x:Name="NavAutostartText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeDienste_Click">
+                    <TextBlock x:Name="NavDiensteText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeDatentraeger_Click">
+                    <TextBlock x:Name="NavDatentraegerText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeNetzwerk_Click">
+                    <TextBlock x:Name="NavNetzwerkText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeTreiber_Click">
+                    <TextBlock x:Name="NavTreiberText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeCommander_Click">
+                    <TextBlock x:Name="NavCommanderText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeBluescreen_Click">
+                    <TextBlock x:Name="NavBluescreenText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeSuperUninstaller_Click">
+                    <TextBlock x:Name="NavUninstallerText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeBiosKompendium_Click">
+                    <TextBlock x:Name="NavBiosText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeSaubermacher_Click">
+                    <TextBlock x:Name="NavSaubermacherText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeWindowsReparatur_Click">
+                    <TextBlock x:Name="NavWindowsReparaturText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeRegistryKompendium_Click">
+                    <TextBlock x:Name="NavRegistryText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeDrucker_Click">
+                    <TextBlock x:Name="NavDruckerText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeUsbGeraete_Click">
+                    <TextBlock x:Name="NavUsbText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeEntstehung_Click">
+                    <TextBlock x:Name="NavEntstehungText" />
+                </RadioButton>
+                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeEinstellungen_Click">
+                    <TextBlock x:Name="NavEinstellungenText" />
+                </RadioButton>
+            </StackPanel>
+
+            <!-- === Inhalt des gewählten Moduls === -->
+            <ContentControl x:Name="InhaltBereich" Grid.Column="1" Margin="16" />
+        </Grid>
+    </DockPanel>
+</Window>

@@ -1,0 +1,397 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:conv="clr-namespace:PCToolbox.Converters;assembly=PC-Toolbox">
+
+    <!-- Ampel-Symbole (26.07.2026): eigene Vektorgrafik statt Emoji, s. Converters/AmpelIconFactory.cs -->
+    <conv:AmpelGlyphConverter x:Key="AmpelGlyphConverter" />
+    <conv:AmpelPrefixTextConverter x:Key="AmpelPrefixTextConverter" />
+
+    <!-- ═══════════════════════════════════════════════════════════
+         Toolbox X — dunkles Neon-Theme
+         Eigenständig entworfen (Vorbild: dunkles Dashboard mit
+         Glow-Akzenten), keine fremden Assets/Farbwerte übernommen.
+         ═══════════════════════════════════════════════════════════ -->
+
+    <!-- === Farbpalette === -->
+    <Color x:Key="BgDeepColor">#0A0E16</Color>
+    <Color x:Key="BgPanelColor">#10151F</Color>
+    <Color x:Key="BgCardColor">#141B29</Color>
+    <Color x:Key="BgCardHoverColor">#1B2436</Color>
+    <!-- Werden beim Start per Text-Ersetzung durch die gewaehlte Akzentfarbe
+         aus den Einstellungen befuellt (s. App.xaml.cs ApplyTheme) - deshalb
+         KEIN gueltiger Hex-Wert hier, sondern Platzhalter-Token. Genau darum
+         ist diese Datei bewusst NICHT als WPF-Page kompiliert (s. .csproj),
+         sondern liegt als Text-Vorlage neben der EXE. -->
+    <Color x:Key="AccentColor">ACCENT_TOKEN</Color>
+    <Color x:Key="AccentDimColor">ACCENT_DIM_TOKEN</Color>
+    <Color x:Key="TextPrimaryColor">#E8EDF4</Color>
+    <Color x:Key="TextMutedColor">#7C8AA3</Color>
+    <Color x:Key="BorderColor">#232C3D</Color>
+    <Color x:Key="DangerColor">#F87171</Color>
+    <Color x:Key="OkColor">#4ADE80</Color>
+    <!-- Gelbe Ampelstufe: bisher fehlte sie, Module mussten sich mit festen Farbwerten behelfen. -->
+    <Color x:Key="WarnColor">#FBBF24</Color>
+
+    <SolidColorBrush x:Key="BgDeepBrush" Color="{StaticResource BgDeepColor}" />
+    <SolidColorBrush x:Key="BgPanelBrush" Color="{StaticResource BgPanelColor}" />
+    <SolidColorBrush x:Key="BgCardBrush" Color="{StaticResource BgCardColor}" />
+    <SolidColorBrush x:Key="BgCardHoverBrush" Color="{StaticResource BgCardHoverColor}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
+    <SolidColorBrush x:Key="AccentDimBrush" Color="{StaticResource AccentDimColor}" />
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
+    <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMutedColor}" />
+    <SolidColorBrush x:Key="BorderBrush1" Color="{StaticResource BorderColor}" />
+    <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource DangerColor}" />
+    <SolidColorBrush x:Key="OkBrush" Color="{StaticResource OkColor}" />
+    <SolidColorBrush x:Key="WarnBrush" Color="{StaticResource WarnColor}" />
+
+    <!-- === Glow-Effekt (dezent, für Akzent-Elemente) === -->
+    <DropShadowEffect x:Key="AccentGlow" Color="{StaticResource AccentColor}"
+                       BlurRadius="16" ShadowDepth="0" Opacity="0.55" />
+
+    <!-- === Schriften (Optik-Runde 26.07.2026) ===
+         Chakra Petch/Orbitron/Rajdhani, SIL Open Font License (Fonts/*/OFL.txt).
+         Ordner-Referenz statt Einzeldatei: WPF waehlt anhand FontWeight die
+         passende Schnittdatei selbst (z.B. Bold -> ChakraPetch-Bold.ttf). -->
+    <FontFamily x:Key="DisplayFontFamily">pack://application:,,,/Fonts/ChakraPetch/#Chakra Petch</FontFamily>
+    <FontFamily x:Key="AccentFontFamily">pack://application:,,,/Fonts/Orbitron/#Orbitron</FontFamily>
+    <FontFamily x:Key="BodyFontFamily">pack://application:,,,/Fonts/Rajdhani/#Rajdhani</FontFamily>
+
+    <!-- === "Woher weiss die Toolbox das?"-Hinweis (26.07.2026) ===
+         Transparenz statt Blackbox: nennt die konkrete Windows-Datenquelle
+         (WMI-Klasse, Event-Log, Registry-Pfad, ...) als Tooltip. -->
+    <Style x:Key="QuelleHinweisStyle" TargetType="TextBlock">
+        <Setter Property="Text" Value="QUELLE_HINWEIS_TOKEN" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontStyle" Value="Italic" />
+        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+        <Setter Property="Cursor" Value="Help" />
+        <Setter Property="Margin" Value="0,2,0,10" />
+        <Setter Property="ToolTipService.InitialShowDelay" Value="200" />
+    </Style>
+
+    <!-- === Tooltips ===
+         Ohne diesen Style zeichnet Windows den Tooltip-Hintergrund hell,
+         waehrend der globale TextBlock-Style (s.u.) die Schrift ebenfalls
+         auf die helle TextPrimaryBrush setzt - heller Text auf hellem
+         Grund macht den ganzen Tooltip-Inhalt praktisch unsichtbar. Deshalb
+         hier Hintergrund UND Rahmen explizit an das dunkle Theme anpassen. -->
+    <Style TargetType="ToolTip">
+        <Setter Property="Background" Value="{StaticResource BgCardBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush1}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="8,5" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="HasDropShadow" Value="True" />
+    </Style>
+
+    <!-- === Fenster-Grundlage === -->
+    <Style TargetType="Window">
+        <Setter Property="Background" Value="{StaticResource BgDeepBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="FontFamily" Value="Segoe UI" />
+    </Style>
+
+    <!-- === Standard-Textblock === -->
+    <Style TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+    </Style>
+
+    <!-- === Eingabefelder === -->
+    <Style TargetType="TextBox">
+        <Setter Property="Background" Value="{StaticResource BgPanelBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush1}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="6,4" />
+        <Setter Property="CaretBrush" Value="{StaticResource AccentBrush}" />
+    </Style>
+
+    <!-- Eigene ComboBoxItem-Vorlage: der WPF-Standard-Dropdown-Hintergrund bleibt
+         sonst hell/weiss (kommt aus dem System-Standardtemplate, wird von einfachen
+         Background/Foreground-Settern auf ComboBox NICHT erfasst) - zusammen mit
+         unserem hellen Text fuers Dunkel-Theme sonst quasi unsichtbar (heller Text
+         auf hellem Hintergrund). Deshalb hier volle Kontrolle wie bei Button/
+         TileCardStyle oben. -->
+    <Style TargetType="ComboBoxItem">
+        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource BgCardHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentDimBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="ComboBox">
+        <Setter Property="Background" Value="{StaticResource BgPanelBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush1}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="8,4" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid>
+                        <ToggleButton x:Name="Umschalter"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                      ClickMode="Press" Focusable="False" Background="Transparent">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border Background="{Binding Background, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                            BorderBrush="{Binding BorderBrush, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                            BorderThickness="{Binding BorderThickness, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                            CornerRadius="6">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="1" Text="▾" Margin="0,0,10,0"
+                                                       Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Border>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+                        <ContentPresenter x:Name="Inhalt" IsHitTestVisible="False"
+                                          Content="{TemplateBinding SelectionBoxItem}"
+                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center" HorizontalAlignment="Left" />
+                        <Popup x:Name="Popup" Placement="Bottom"
+                               IsOpen="{TemplateBinding IsDropDownOpen}"
+                               AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
+                            <Border Background="{StaticResource BgPanelBrush}" BorderBrush="{StaticResource BorderBrush1}"
+                                    BorderThickness="1" CornerRadius="6" Margin="0,2,0,0"
+                                    MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
+                                <ScrollViewer SnapsToDevicePixels="True" Margin="4">
+                                    <ItemsPresenter />
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="ScrollViewer">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <!-- === Standard-Button (im Inhaltsbereich, z.B. "Scannen") === -->
+    <Style TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource BgCardBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush1}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="6" RenderTransformOrigin="0.5,0.5">
+                        <Border.RenderTransform>
+                            <ScaleTransform x:Name="BdScale" ScaleX="1" ScaleY="1" />
+                        </Border.RenderTransform>
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Margin="{TemplateBinding Padding}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource BgCardHoverBrush}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="BdScale" Storyboard.TargetProperty="ScaleX" To="1.03" Duration="0:0:0.12" />
+                                        <DoubleAnimation Storyboard.TargetName="BdScale" Storyboard.TargetProperty="ScaleY" To="1.03" Duration="0:0:0.12" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="BdScale" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.12" />
+                                        <DoubleAnimation Storyboard.TargetName="BdScale" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.12" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- === Sidebar-Navigationseintrag === -->
+    <Style x:Key="SidebarItemStyle" TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Height" Value="42" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Bd" CornerRadius="6" Margin="8,2" Padding="10,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="Indicator" Grid.Column="0" Width="3" Height="20"
+                                    CornerRadius="2" Background="{StaticResource AccentBrush}"
+                                    Opacity="0" Margin="-10,0,10,0" RenderTransformOrigin="0,0.5">
+                                <Border.RenderTransform>
+                                    <TranslateTransform x:Name="IndicatorSlide" X="-6" />
+                                </Border.RenderTransform>
+                            </Border>
+                            <ContentPresenter Grid.Column="1" VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource BgCardBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource BgCardBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Indicator" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.18" />
+                                        <DoubleAnimation Storyboard.TargetName="IndicatorSlide" Storyboard.TargetProperty="X" To="0" Duration="0:0:0.18">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut" />
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Indicator" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.12" />
+                                        <DoubleAnimation Storyboard.TargetName="IndicatorSlide" Storyboard.TargetProperty="X" To="-6" Duration="0:0:0.12" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- === Kachel-Karte (Übersicht) === -->
+    <Style x:Key="TileCardStyle" TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource BgCardBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush1}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Padding" Value="18" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="10" RenderTransformOrigin="0.5,0.5">
+                        <Border.RenderTransform>
+                            <ScaleTransform x:Name="BdScale" ScaleX="1" ScaleY="1" />
+                        </Border.RenderTransform>
+                        <Border.Effect>
+                            <!-- Eigene (nicht geteilte) Instanz statt {StaticResource AccentGlow}: eine geteilte
+                                 Ressource wuerde beim Animieren gleichzeitig auf ALLEN Kacheln aufleuchten. -->
+                            <DropShadowEffect x:Name="BdGlow" Color="{StaticResource AccentColor}" BlurRadius="16" ShadowDepth="0" Opacity="0" />
+                        </Border.Effect>
+                        <ContentPresenter Margin="{TemplateBinding Padding}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource BgCardHoverBrush}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="BdScale" Storyboard.TargetProperty="ScaleX" To="1.025" Duration="0:0:0.15" />
+                                        <DoubleAnimation Storyboard.TargetName="BdScale" Storyboard.TargetProperty="ScaleY" To="1.025" Duration="0:0:0.15" />
+                                        <DoubleAnimation Storyboard.TargetName="BdGlow" Storyboard.TargetProperty="Opacity" To="0.55" Duration="0:0:0.15" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="BdScale" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.15" />
+                                        <DoubleAnimation Storyboard.TargetName="BdScale" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.15" />
+                                        <DoubleAnimation Storyboard.TargetName="BdGlow" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.15" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- === Titelleisten-Button (_/□/X) === -->
+    <Style x:Key="TitleBarButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+        <Setter Property="Width" Value="40" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource BgCardBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CloseButtonStyle" TargetType="Button" BasedOn="{StaticResource TitleBarButtonStyle}">
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource DangerBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource BgDeepBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+</ResourceDictionary>
