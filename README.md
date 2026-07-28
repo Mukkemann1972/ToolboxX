@@ -4,15 +4,14 @@
 nicht nur ein PC-Check)*
 
 Dein Schweizer Taschenmesser für PC-Diagnose & Reparatur.
-Modular, schnell, Open Source – kein Abo, keine Spyware.
+Modular, schnell, quell-einsehbar – kein Abo, keine Spyware.
 
-> **⚠️ Hinweis für Tester:** Beim ersten Öffnen des Setups zeigt Windows eine
+> **⚠️ Hinweis beim ersten Start:** Windows zeigt beim Öffnen des Setups eine
 > SmartScreen-Warnung („Der Computer wurde durch Windows geschützt", Herausgeber
 > „Unbekannt"). Das liegt daran, dass das Programm noch **nicht digital
-> signiert** ist (ein Code-Signing-Zertifikat kostet Geld und ist für den
-> allerersten Testlauf noch nicht angeschafft) – **nicht** daran, dass etwas
-> Schädliches drin wäre. Zum Fortfahren: „Weitere Informationen" → „Trotzdem
-> ausführen". Wer das nicht möchte, wartet auf eine spätere signierte Version.
+> signiert** ist (ein Code-Signing-Zertifikat kostet Geld und steht noch aus) –
+> **nicht** daran, dass etwas Schädliches drin wäre. Zum Fortfahren: „Weitere
+> Informationen" → „Trotzdem ausführen".
 
 ## Philosophie
 
@@ -28,24 +27,24 @@ lassen, dann schlank und gezielt das eigene, bessere Modul bauen. Jede
 Diagnose/jeder Fund erklärt zusätzlich konkret **was jetzt zu tun ist** –
 nicht nur die reine Information (Vorbild: RetroTrax' eingebautes Hilfe-Prinzip).
 
-## Status (Stand 27.07.2026)
+## Status (Stand 28.07.2026)
 
-**Die Free-Version ist modulseitig komplett und durchgetestet – 16 Kacheln
-(inkl. „Windows reparieren"), jedes Modul im laufenden Programm gesehen.**
-Offen sind nur noch: richtiges Setup-Programm testen lassen (baut bereits, s.
-unten) und Feinschliff nach dem Feedback der ersten echten Tester.
+**Öffentlich veröffentlicht: v0.6.4.** Die Free-Version ist modulseitig komplett
+und durchgetestet – **19 Module**, jedes im laufenden Programm auf echter
+Hardware mit echten Daten gesehen (inkl. Laufwerke/Temperatur mit Administrator-
+Rechten: echte SMART-Werte und Sensor-Temperaturen bestätigt, „Windows
+reparieren" an einem echten Befund erfolgreich verifiziert). Installer (MSI)
+liegt unter [Releases](../../releases) bereit.
 
-**Seit 26.07. wird direkt auf Alex' Windows-PC gebaut und ausgeführt** (vorher nur
-Cross-Compile auf dem Pi, Ausführen ging dort nicht). Build: 0 Fehler / 0 Warnungen,
-207/207 automatisierte Tests grün.
+**335 automatisierte Tests grün, Build: 0 Fehler / 0 Warnungen.** Die reine
+Logik jedes Moduls (Parsing, Bewertung, Sicherheitsregeln) ist in
+`src/PC-ToolboxCore` ausgelagert, einem plattformneutralen Projekt ohne WPF-
+Abhängigkeit – dadurch laufen die Tests auch ohne echtes Windows.
 
-**Jedes Modul wurde im laufenden Programm auf echter Hardware mit echten Daten
-gesehen** – inklusive Laufwerke/Temperatur mit Administrator-Rechten (echte
-SMART-Werte und Sensor-Temperaturen bestätigt) und „Windows reparieren" an einem
-echten Befund (Komponentenspeicher-Schaden gefunden und erfolgreich repariert).
-Was jetzt noch aussteht, ist genau der richtige nächste Schritt: **echte
-Rückmeldungen von anderen Systemen** – die Free-Version geht gerade an erste
-Tester, deren Hardware/Windows-Konfiguration wir hier nicht abbilden können.
+Es gibt außerdem eine **kostenpflichtige Pro-Version** für Werkstatt-, IT-Profi-
+und Systemadministrator-Einsatz (Ordnergröße-Analyse, WLAN-Details, PDF-
+Testberichte, u.a.) – deren Code ist nicht Teil dieses Repositories, siehe
+[Lizenz](#lizenz).
 
 **Optik-Runde (26.07.) – umgesetzt:**
 - **Alex' eigenes Toolbox-X-Logo** eingebaut: als Programm-/Fenster-Icon (echte
@@ -63,14 +62,10 @@ Tester, deren Hardware/Windows-Konfiguration wir hier nicht abbilden können.
   Transparenz statt Blackbox, inklusive der ehrlichen Grenzen
 - **Neue Entstehungs-Seite**: wer woran gebaut hat (Alex / Claude / Hermes)
 
-**V0.01 (Dashboard/Laufwerke/Bluescreen/Temperatur):** von Alex auf echter
-Windows-Hardware getestet, läuft. Test-EXE liegt unter
-`/mnt/storage/hermes/test-exe/pc-toolbox/`.
+**V0.01 (Dashboard/Laufwerke/Bluescreen/Temperatur):** auf echter
+Windows-Hardware getestet, läuft.
 
-**V0.02 (Super-Uninstaller) – NEU, NUR compile-geprüft, noch NICHT auf echter
-Hardware getestet:** Baut mit 0 Fehlern (Cross-Compile auf dem Pi via
-`EnableWindowsTargeting`), aber WPF/Registry/Prozessstart lassen sich auf dem Pi
-nicht ausführen – der erste echte Test steht noch aus. Bewusst vorsichtig gebaut:
+**V0.02 (Super-Uninstaller):** bewusst vorsichtig gebaut:
 - **3-Phasen-Sicherheit ist jetzt echter Code** (`Safety/SnapshotManager.cs` +
   `RollbackEngine.cs` + `SafetyEnforcer.cs`), nicht mehr nur Plan im README.
   Registry-Schlüssel werden vor jeder Änderung per `reg export` gesichert,
@@ -89,7 +84,7 @@ nicht ausführen – der erste echte Test steht noch aus. Bewusst vorsichtig geb
   Aktionen zuerst in einer **Windows Sandbox** (Wegwerf-VM, in Windows 10/11
   Pro eingebaut) auszuprobieren statt direkt auf dem Hauptsystem.
 
-**V0.03 (BIOS-Kompendium) – NEU, NUR compile-geprüft:** reines Nachschlagewerk
+**V0.03 (BIOS-Kompendium):** reines Nachschlagewerk
 (`Services/BiosKompendiumService.cs`), keine Live-Abfrage der echten
 BIOS-Einstellungen (Windows kann das nicht auslesen) – nur die eigenen
 BIOS-Kenndaten (Hersteller/Version/Datum) werden per WMI angezeigt. 9 sorgfältig
@@ -101,7 +96,7 @@ geschrieben, dass jeder Eintrag **für sich allein reicht** – ohne Vorwissen, 
 dass jemand zusätzlich fragen muss (Alex' persönliches Anliegen: viele Nutzer haben
 niemanden, den sie fragen können).
 
-**V0.03 (System-Saubermacher) – NEU, NUR compile-geprüft, V0.03 damit komplett:**
+**V0.03 (System-Saubermacher):**
 Bereinigt 4 bewusst schlank ausgewählte, sichere Kategorien (`Services/CleanupScanner.cs` +
 `CleanupService.cs`): temporäre Dateien, Miniaturansichten-Cache, Windows-Update-
 Downloadcache, alte Windows.old-Installation. Browser-Caches u.ä. bewusst NICHT
@@ -220,21 +215,20 @@ Jedes davon ist bewusst so gebaut, dass man **nichts kaputt machen kann**:
 
 ## Module
 
-| Version | Module | Stand |
-|---------|--------|-------|
-| V0.01 | Dashboard, Festplatten (SMART), Bluescreen-Analyse, Temperatur | auf echter Hardware getestet |
-| V0.02 | Super-Uninstaller (Snapshot + Leftover-Suche) | läuft, im Programm gesehen |
-| V0.03 | BIOS-Kompendium + System-Saubermacher | läuft, im Programm gesehen |
-| V0.04 | Autostart + Dienste-Manager | läuft, im Programm gesehen |
-| V0.05 | Datenträger (formatieren, Bezeichnung, Buchstabe, Größe verlustfrei) | läuft, im Programm gesehen |
-| V0.05 | Commander (zwei Spalten, nie überschreiben, löschen nur in den Papierkorb) | läuft, im Programm gesehen |
-| V0.06 | Treiber-Check (22 Geräte-Fehlernummern im Klartext) + Netzwerk-Diagnose | läuft, im Programm gesehen |
-| V0.05 | GPU-Diagnose (VRAM-Test, herstellerunabhängig) + RAM-Disk | läuft, im Programm gesehen |
-| V0.05 | Hardware-Info (Speicherriegel, Laufwerke, Hersteller-Links) – im System-Modul | läuft, im Programm gesehen |
-| V0.05 | Optik-Runde: Logo, Schriften, Vektor-Ampeln, Bewegung, Quellen-Hinweise, Entstehung | läuft, im Programm gesehen |
-| V0.06 | Windows reparieren (DISM + sfc in der richtigen Reihenfolge, Ausgabe im Klartext) | läuft, auf echter Hardware geprüft |
-| V0.05 | Setup-Programm (MSI, WiX v5) statt ZIP – `setup/` + `build-setup.ps1` | baut, Installations-Test in Sandbox offen |
-| später | Backup, Sync, Maus-Test, tiefere Hardware-Diagnose | Vision, s. `HARDWARE_VISION.md` |
+Alle 19 Free-Module, jedes im laufenden Programm auf echter Hardware geprüft:
+
+Dashboard · Laufwerke (SMART) · Temperatur · Bluescreen-Analyse · GPU-Diagnose
+(VRAM-Test) · RAM-Disk · Autostart · Dienste-Manager · Datenträger (formatieren,
+Bezeichnung, Buchstabe, Größe verlustfrei) · Netzwerk-Diagnose · Treiber-Check ·
+Commander (Zwei-Spalten-Dateimanager) · Super-Uninstaller (Snapshot +
+Leftover-Suche) · BIOS-Kompendium · System-Saubermacher · Windows reparieren
+(DISM + sfc) · Registry-Kompendium · Drucker · USB-Geräte
+
+Setup-Programm (MSI, WiX v5) `setup/` + `build-setup.ps1`, Installation in
+Windows Sandbox geprüft (s. unten).
+
+**Später (Vision, noch nicht gebaut):** Backup, Sync, Maus-Test, tiefere
+Hardware-Diagnose – siehe `HARDWARE_VISION.md`.
 
 **Absichtlich NICHT gebaut:** eigene Fernwartung (siehe unten, RustDesk kann das besser)
 und Treiber-Download (der Treiber-Check liest nur, installiert nichts).
@@ -282,7 +276,7 @@ der `.csproj`), nur *ausführen* braucht echtes Windows.
 
 **Echte automatisierte Tests laufen dagegen auch auf dem Pi:**
 `dotnet test PC-Toolbox.sln` führt `src/PC-Toolbox.Tests` wirklich aus (nicht nur
-Compile-Check) – aktuell **207 Tests**. Möglich, weil die reine Logik
+Compile-Check) – aktuell **335 Tests**. Möglich, weil die reine Logik
 (Deinstall-Befehl parsen, Namens-Abgleich für Leftover-Suche, Pfad-Sicherheitsregeln,
 Autostart-/Dienste-Bewertung, Aufgaben-XML, Gerätefehler-Codes) in
 **`src/PC-ToolboxCore`** ausgelagert ist – ein plattformneutrales `net8.0`-Projekt
@@ -344,12 +338,18 @@ in den gemappten Ordner schreibt.
 
 **Noch nicht signiert:** Das MSI hat keine Code-Signatur. Windows zeigt beim Öffnen
 deshalb eine SmartScreen-Warnung („Der Computer wurde durch Windows geschützt"), und
-der Herausgeber steht als „Unbekannt". Testern muss man das vorher sagen, sonst
-schrecken sie zu Recht zurück. Für eine öffentliche Veröffentlichung braucht es ein
-Code-Signing-Zertifikat (kostenpflichtig, jährlich) – noch offen.
+der Herausgeber steht als „Unbekannt" (s. Hinweis ganz oben). Ein
+Code-Signing-Zertifikat (kostenpflichtig, jährlich) steht noch aus.
 
 ## Lizenz
 
-Open Source (MIT) – Spendenbasis ("Buy me a coffee").
+Siehe [`LICENSE.md`](LICENSE.md): kostenlos nutzbar und unverändert weitergebbar,
+aber keine klassische Open-Source-Lizenz (OSI) – Änderungen/abgeleitete Werke
+sind nicht erlaubt, alle Rechte bleiben beim Urheber. Der Quellcode liegt hier
+zu Transparenzzwecken offen (siehe die "Entstehung"-Seite in der App).
+
 Mitgelieferte Fremd-Werkzeuge behalten ihre eigenen Lizenzen (zlib bzw. GPL-2.0),
 eingebettete Schriften stehen unter der SIL Open Font License.
+
+Es gibt eine kostenpflichtige **Pro-Version** für Werkstatt-/IT-Profi-Einsatz;
+deren Code ist nicht Teil dieses Repositories.
