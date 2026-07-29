@@ -353,3 +353,9 @@ eingebettete Schriften stehen unter der SIL Open Font License.
 
 Es gibt eine kostenpflichtige **Pro-Version** für Werkstatt-/IT-Profi-Einsatz;
 deren Code ist nicht Teil dieses Repositories.
+
+## Unterstützen
+
+Toolbox X bleibt kostenlos und werbefrei, ohne Abo und ohne versteckte Kosten – kein
+Zwang, nur wer mag. Wenn dir das Programm hilft, kannst du
+[einen Kaffee spendieren auf Ko-fi](https://ko-fi.com/mukkemann).
