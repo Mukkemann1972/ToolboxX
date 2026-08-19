@@ -1,6 +1,28 @@
 <UserControl x:Class="PCToolbox.Modules.NetzwerkView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <DataTemplate x:Key="SchrittTemplate">
+            <Border Background="{StaticResource BgCardBrush}" CornerRadius="8"
+                    Padding="14,12" Margin="0,0,0,10">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <ContentControl Content="{Binding Symbol, Converter={StaticResource AmpelGlyphConverter}, ConverterParameter=15}"
+                                        VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock Text="{Binding Titel}" FontWeight="Bold" FontSize="15"
+                                   VerticalAlignment="Center" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding Ergebnis}" Foreground="{Binding AmpelFarbe}"
+                               FontWeight="SemiBold" Margin="0,4,0,6" TextWrapping="Wrap" />
+
+                    <TextBlock Text="{Binding WasEsIst}" TextWrapping="Wrap" Margin="0,0,0,6" />
+                    <TextBlock Text="{Binding Empfehlung}" TextWrapping="Wrap"
+                               Foreground="{StaticResource TextMutedBrush}" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
     <DockPanel>
 
         <StackPanel DockPanel.Dock="Top">
@@ -21,30 +43,7 @@
 
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel>
-                <ItemsControl x:Name="Liste">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Background="{StaticResource BgCardBrush}" CornerRadius="8"
-                                    Padding="14,12" Margin="0,0,0,10">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal">
-                                        <ContentControl Content="{Binding Symbol, Converter={StaticResource AmpelGlyphConverter}, ConverterParameter=15}"
-                                                        VerticalAlignment="Center" Margin="0,0,8,0" />
-                                        <TextBlock Text="{Binding Titel}" FontWeight="Bold" FontSize="15"
-                                                   VerticalAlignment="Center" TextWrapping="Wrap" />
-                                    </StackPanel>
-
-                                    <TextBlock Text="{Binding Ergebnis}" Foreground="{Binding AmpelFarbe}"
-                                               FontWeight="SemiBold" Margin="0,4,0,6" TextWrapping="Wrap" />
-
-                                    <TextBlock Text="{Binding WasEsIst}" TextWrapping="Wrap" Margin="0,0,0,6" />
-                                    <TextBlock Text="{Binding Empfehlung}" TextWrapping="Wrap"
-                                               Foreground="{StaticResource TextMutedBrush}" />
-                                </StackPanel>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <ItemsControl x:Name="Liste" ItemTemplate="{StaticResource SchrittTemplate}" />
 
                 <!-- "Wer redet mit draußen?" - ergaenzt die Kettenpruefung oben um die Frage,
                      welches Programm gerade tatsaechlich eine Verbindung offen hat
@@ -62,6 +61,24 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                    </StackPanel>
+                </Expander>
+
+                <!-- Ziel-Diagnose: die Kettenpruefung oben beantwortet "geht mein Internet",
+                     nicht "warum laedt DIESE EINE Seite nicht, obwohl der Rest funktioniert" -
+                     genau die Fragenkette, die man sonst von Hand durchklicken muesste
+                     (DNS, Hosts-Datei, Proxy, echter Verbindungsaufbau zum Zielport). -->
+                <Expander x:Name="ZielDiagnoseBereich" Margin="0,4,0,0">
+                    <StackPanel Margin="0,8,0,0">
+                        <TextBlock x:Name="ZielErklaerung" TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,10" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <TextBox x:Name="ZielEingabe" Width="280" Padding="6,5" VerticalContentAlignment="Center" />
+                            <Button x:Name="ZielPruefenButton" Click="ZielPruefen_Click" Padding="12,6" Margin="8,0,0,0" />
+                        </StackPanel>
+                        <TextBlock x:Name="ZielUrteilText" FontSize="13" FontWeight="SemiBold"
+                                   Margin="0,0,0,10" TextWrapping="Wrap" />
+                        <ItemsControl x:Name="ZielErgebnisListe" ItemTemplate="{StaticResource SchrittTemplate}" />
                     </StackPanel>
                 </Expander>
 
@@ -85,6 +102,8 @@
                         </ItemsControl>
                     </StackPanel>
                 </Expander>
+
+                <StackPanel x:Name="ProZusatzBereich" Margin="0,4,0,0" />
             </StackPanel>
         </ScrollViewer>
     </DockPanel>

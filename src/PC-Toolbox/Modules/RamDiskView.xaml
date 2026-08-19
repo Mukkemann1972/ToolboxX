@@ -16,6 +16,10 @@
                 </StackPanel>
             </Border>
 
+            <!-- Nur im Pro-Build befuellt: Wahl zwischen ImDisk (extern, Free) und der eigenen
+                 RAM-Disk (s. EigeneRamDiskService) - gleiches Muster wie GpuDiagnoseView. -->
+            <StackPanel x:Name="ProZusatzBereich" Margin="0,0,0,16" />
+
             <TextBlock x:Name="StatusText" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap" />
 
             <StackPanel x:Name="InstallierenPanel" Margin="0,0,0,16" Visibility="Collapsed">

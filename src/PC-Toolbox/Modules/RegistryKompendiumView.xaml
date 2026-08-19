@@ -7,6 +7,8 @@
         <TextBlock x:Name="EinleitungText" DockPanel.Dock="Top" Foreground="{StaticResource TextMutedBrush}" FontSize="12" Margin="0,0,0,14"
                    TextWrapping="Wrap" />
 
+        <StackPanel x:Name="ProZusatzBereich" DockPanel.Dock="Top" Margin="0,0,0,14" />
+
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <ItemsControl x:Name="Liste">
                 <ItemsControl.ItemTemplate>

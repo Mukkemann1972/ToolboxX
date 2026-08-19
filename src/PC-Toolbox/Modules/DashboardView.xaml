@@ -8,6 +8,63 @@
             <TextBlock x:Name="StatusText" TextWrapping="Wrap" />
             <StackPanel x:Name="Inhalt" Margin="0,10,0,0" />
 
+            <!-- === Live-Systemmonitor === -->
+            <TextBlock x:Name="MonitorTitel" FontSize="15" FontWeight="Bold" Margin="0,22,0,2" />
+            <TextBlock x:Name="MonitorEinleitung" FontSize="12" Margin="0,0,0,8"
+                       TextWrapping="Wrap" Foreground="{StaticResource TextMutedBrush}" />
+
+            <Border Background="{StaticResource BgPanelBrush}" CornerRadius="10" Padding="16">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <Button x:Name="MonitorStartStopButton" Padding="12,6" Click="MonitorStartStop_Click" />
+                        <Button x:Name="MonitorCsvButton" Padding="12,6" Margin="8,0,0,0"
+                                IsEnabled="False" Click="MonitorCsvExportieren_Click" />
+                    </StackPanel>
+
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="60" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="CPU" VerticalAlignment="Center" />
+                        <ProgressBar x:Name="CpuBalken" Grid.Column="1" Height="10" Minimum="0" Maximum="100" Margin="8,0" />
+                        <TextBlock x:Name="CpuText" Grid.Column="2" Text="–" TextAlignment="Right" VerticalAlignment="Center" />
+                    </Grid>
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="60" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="RAM" VerticalAlignment="Center" />
+                        <ProgressBar x:Name="RamBalken" Grid.Column="1" Height="10" Minimum="0" Maximum="100" Margin="8,0" />
+                        <TextBlock x:Name="RamText" Grid.Column="2" Text="–" TextAlignment="Right" VerticalAlignment="Center" />
+                    </Grid>
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="60" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" x:Name="DiskLabel" VerticalAlignment="Center" />
+                        <ProgressBar x:Name="DiskBalken" Grid.Column="1" Height="10" Minimum="0" Maximum="100" Margin="8,0" />
+                        <TextBlock x:Name="DiskText" Grid.Column="2" Text="–" TextAlignment="Right" VerticalAlignment="Center" />
+                    </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" x:Name="NetzwerkLabel" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" x:Name="NetzwerkText" Text="–" VerticalAlignment="Center" Margin="8,0,0,0" />
+                    </Grid>
+
+                    <TextBlock x:Name="MonitorStatusText" FontSize="11" Margin="0,10,0,0"
+                               Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
             <!-- === Verbaute Hardware (reine Anzeige) === -->
             <TextBlock x:Name="ArbeitsspeicherTitel" FontSize="15" FontWeight="Bold" Margin="0,22,0,2" />
             <TextBlock x:Name="SpeicherZusammenfassung" FontSize="12" Margin="0,0,0,8"

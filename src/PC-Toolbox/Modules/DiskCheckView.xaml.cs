@@ -47,14 +47,29 @@ public partial class DiskCheckView : UserControl
         Titel = $"{d.SpeicherplatzAmpel.Symbol()} {d.DeviceId}  {d.Model}".Trim(),
         SpeicherZeile = Loc.T($"{d.FreeGb:0.#} GB frei von {d.SizeGb:0.#} GB ({d.FreePercent:0}%)",
                               $"{d.FreeGb:0.#} GB free of {d.SizeGb:0.#} GB ({d.FreePercent:0}%)"),
-        SmartZeile = d.SmartVerfuegbar
-            ? $"{d.SmartAmpel.Symbol()} " + Loc.T(
-                  $"SMART: Reallocated={d.ReallocatedSectors ?? 0}, Pending={d.CurrentPendingSectors ?? 0}, " +
-                  $"Temp={(d.TemperaturCelsius.HasValue ? d.TemperaturCelsius + "°C" : "n/a")}, Betriebsstunden={d.PowerOnHours ?? 0}. {d.Erklaerung}",
-                  $"SMART: Reallocated={d.ReallocatedSectors ?? 0}, Pending={d.CurrentPendingSectors ?? 0}, " +
-                  $"Temp={(d.TemperaturCelsius.HasValue ? d.TemperaturCelsius + "°C" : "n/a")}, Power-on hours={d.PowerOnHours ?? 0}. {d.Erklaerung}")
-            : $"❔ {d.Erklaerung}"
+        SmartZeile = d.SmartVerfuegbar ? $"{d.SmartAmpel.Symbol()} " + SmartWerteText(d) : $"❔ {d.Erklaerung}"
     };
+
+    /// <summary>NVMe-Laufwerke haben kein "Reallocated/Pending Sectors"-Konzept (dafür Abnutzung
+    /// in %, s. NvmeZuverlaessigkeit) - eigener Text statt ATA-Felder anzuzeigen, die bei NVMe
+    /// immer 0/bedeutungslos wären und einen falschen Eindruck echter Werte erwecken würden.</summary>
+    private static string SmartWerteText(DiskInfo d)
+    {
+        var tempText = d.TemperaturCelsius.HasValue ? d.TemperaturCelsius + "°C" : "n/a";
+
+        if (d.AbnutzungProzent.HasValue)
+            return Loc.T(
+                $"NVMe: Abnutzung={d.AbnutzungProzent:0.#}%, Unkorrigierbare Fehler={d.UnkorrigierbareFehler ?? 0}, " +
+                $"Temp={tempText}, Betriebsstunden={d.PowerOnHours ?? 0}. {d.Erklaerung}",
+                $"NVMe: Wear={d.AbnutzungProzent:0.#}%, Uncorrected errors={d.UnkorrigierbareFehler ?? 0}, " +
+                $"Temp={tempText}, Power-on hours={d.PowerOnHours ?? 0}. {d.Erklaerung}");
+
+        return Loc.T(
+            $"SMART: Reallocated={d.ReallocatedSectors ?? 0}, Pending={d.CurrentPendingSectors ?? 0}, " +
+            $"Temp={tempText}, Betriebsstunden={d.PowerOnHours ?? 0}. {d.Erklaerung}",
+            $"SMART: Reallocated={d.ReallocatedSectors ?? 0}, Pending={d.CurrentPendingSectors ?? 0}, " +
+            $"Temp={tempText}, Power-on hours={d.PowerOnHours ?? 0}. {d.Erklaerung}");
+    }
 
     private class DiskAnzeige
     {

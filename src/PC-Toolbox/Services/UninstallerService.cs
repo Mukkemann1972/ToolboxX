@@ -39,7 +39,24 @@ public class UninstallerService
                 && RegistrySchluesselLoeschen(item.Pfad);
         });
 
-    private static bool RegistrySchluesselLoeschen(string registryPfad)
+    // Zweitversuch mit Administratorrechten (loest ein Windows-ACL-Problem, z.B. ein
+    // ProgramData-Ordner, den nur Administratoren entfernen duerfen) - wird von der UI nur nach
+    // ausdruecklicher, erklaerter Zustimmung des Nutzers aufgerufen, s. SnapshotManager-Kommentar.
+    public Task<bool> LeftoverMitErhoehtenRechtenEntfernenAsync(LeftoverItem item, string snapshotOrdner) =>
+        Task.Run(() =>
+        {
+            if (item.Art == LeftoverArt.Ordner)
+            {
+                var ziel = SnapshotManager.OrdnerMitErhoehtenRechtenSichernUndEntfernen(snapshotOrdner, item.Pfad);
+                return ziel is not null;
+            }
+
+            var dateiName = $"leftover-{Guid.NewGuid():N}";
+            return SnapshotManager.RegistrySchluesselSichern(snapshotOrdner, item.Pfad, dateiName)
+                && RegistrySchluesselLoeschen(item.Pfad);
+        });
+
+    internal static bool RegistrySchluesselLoeschen(string registryPfad)
     {
         var teile = registryPfad.Split('\\', 2);
         if (teile.Length != 2) return false;

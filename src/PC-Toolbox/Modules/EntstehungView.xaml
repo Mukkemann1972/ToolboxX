@@ -46,6 +46,25 @@
 
             <TextBlock x:Name="PerspektivenText" TextWrapping="Wrap" FontStyle="Italic" Foreground="{StaticResource TextMutedBrush}" FontSize="12" Margin="0,0,0,4" />
 
+            <Border Background="{StaticResource BgCardBrush}" CornerRadius="10" Padding="18" Margin="0,20,0,0">
+                <StackPanel>
+                    <TextBlock x:Name="BegleiterTitelText" FontWeight="Bold" FontSize="15" Margin="0,0,0,6" />
+                    <TextBlock x:Name="BegleiterText" TextWrapping="Wrap" Foreground="{StaticResource TextMutedBrush}" FontSize="12" Margin="0,0,0,12" />
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="RufusButton" Click="Rufus_Click" Padding="14,7" Margin="0,0,10,0" />
+                        <Button x:Name="RustDeskButton" Click="RustDesk_Click" Padding="14,7" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="KofiKarte" Background="{StaticResource BgCardBrush}" CornerRadius="10" Padding="18" Margin="0,20,0,0">
+                <StackPanel>
+                    <TextBlock x:Name="KofiTitelText" FontWeight="Bold" FontSize="15" Margin="0,0,0,6" />
+                    <TextBlock x:Name="KofiText" TextWrapping="Wrap" Foreground="{StaticResource TextMutedBrush}" FontSize="12" Margin="0,0,0,12" />
+                    <Button x:Name="KofiButton" Click="Kofi_Click" Padding="14,7" HorizontalAlignment="Left" />
+                </StackPanel>
+            </Border>
+
             <TextBlock x:Name="FusszeileText" TextWrapping="Wrap" Foreground="{StaticResource TextMutedBrush}" FontSize="11" Margin="0,16,0,0" />
         </StackPanel>
     </ScrollViewer>

@@ -1,14 +1,24 @@
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using PCToolboxCore.Models;
 using PCToolbox.Services;
 using PCToolboxCore;
+#if PRO_BUILD
+using PCToolbox.Services.Pro;
+#endif
 
 namespace PCToolbox.Modules;
 
 public partial class RamDiskView : UserControl
 {
     private readonly RamDiskService _ramDiskService = new();
+
+#if PRO_BUILD
+    private readonly EigeneRamDiskService _eigeneRamDiskService = new();
+    private ComboBox _engineAuswahl = null!;
+    private StackPanel _dokanInstallierenPanel = null!;
+#endif
 
     public RamDiskView()
     {
@@ -34,6 +44,10 @@ public partial class RamDiskView : UserControl
         ErstellenButton.Content = Loc.T("RAM-Disk anlegen", "Create RAM disk");
         EntfernenButton.Content = Loc.T("RAM-Disk entfernen", "Remove RAM disk");
 
+#if PRO_BUILD
+        BauEngineBereich();
+#endif
+
         // A ist unter Windows fast immer das Diskettenlaufwerk-Erbe, D/C oft belegt -
         // R ("RAM") als sinnvoller Standard, danach der Rest des Alphabets als Ausweiche.
         var buchstaben = new[] { 'R' }.Concat("EFGHIJKLMNOPQSTUVWXYZ".ToCharArray());
@@ -52,6 +66,15 @@ public partial class RamDiskView : UserControl
 
     private async Task StatusAktualisierenAsync()
     {
+#if PRO_BUILD
+        if (_engineAuswahl.SelectedIndex == 1)
+        {
+            await EigeneEngineStatusAktualisierenAsync();
+            return;
+        }
+        _dokanInstallierenPanel.Visibility = System.Windows.Visibility.Collapsed;
+#endif
+
         if (!_ramDiskService.IstImDiskInstalliert())
         {
             StatusText.Text = Loc.T("ImDisk ist nicht installiert.", "ImDisk is not installed.");
@@ -100,7 +123,13 @@ public partial class RamDiskView : UserControl
             GroesseMb = AusgewaehlteGroesseMb()
         };
 
+#if PRO_BUILD
+        var (erfolg, meldung) = _engineAuswahl.SelectedIndex == 1
+            ? await _eigeneRamDiskService.ErstellenAsync(einstellungen)
+            : await _ramDiskService.ErstellenAsync(einstellungen);
+#else
         var (erfolg, meldung) = await _ramDiskService.ErstellenAsync(einstellungen);
+#endif
         MeldungText.Text = meldung;
         MeldungText.Foreground = erfolg ? Brushes.LimeGreen : Brushes.OrangeRed;
 
@@ -112,7 +141,13 @@ public partial class RamDiskView : UserControl
         EntfernenButton.IsEnabled = false;
         MeldungText.Text = Loc.T("Entferne RAM-Disk (UAC-Bestätigung nötig)...", "Removing RAM disk (UAC confirmation required)...");
 
+#if PRO_BUILD
+        var (erfolg, meldung) = _engineAuswahl.SelectedIndex == 1
+            ? await _eigeneRamDiskService.EntfernenAsync()
+            : await _ramDiskService.EntfernenAsync(AusgewaehlterLaufwerksbuchstabe());
+#else
         var (erfolg, meldung) = await _ramDiskService.EntfernenAsync(AusgewaehlterLaufwerksbuchstabe());
+#endif
         MeldungText.Text = meldung;
         MeldungText.Foreground = erfolg ? Brushes.LimeGreen : Brushes.OrangeRed;
 
@@ -133,4 +168,143 @@ public partial class RamDiskView : UserControl
         MeldungText.Foreground = gestartet ? Brushes.LimeGreen : Brushes.OrangeRed;
         ImDiskInstallierenButton.IsEnabled = true;
     }
+
+#if PRO_BUILD
+    /// <summary>
+    /// Engine-Auswahl zwischen ImDisk (extern, dieselbe Engine wie Free) und der komplett
+    /// selbst geschriebenen RAM-Disk (s. EigeneRamDiskService, PCToolboxCore.Pro.EigeneRamDisk).
+    /// Standardmaessig ist die eigene Engine vorausgewaehlt - dasselbe Muster wie beim eigenen
+    /// Vulkan-VRAM-Test (GpuDiagnoseView): das Pro-Alleinstellungsmerkmal soll nicht in einem
+    /// zweiten Klick versteckt sein.
+    /// </summary>
+    private void BauEngineBereich()
+    {
+        var label = new TextBlock
+        {
+            Text = Loc.T("Engine (Pro):", "Engine (Pro):"),
+            FontSize = 12,
+            Foreground = (Brush)FindResource("TextMutedBrush"),
+            Margin = new Thickness(0, 0, 0, 4)
+        };
+
+        _engineAuswahl = new ComboBox { Width = 300, HorizontalAlignment = HorizontalAlignment.Left };
+        _engineAuswahl.Items.Add(new ComboBoxItem { Content = Loc.T("ImDisk (extern, wie Free)", "ImDisk (external, same as Free)") });
+        _engineAuswahl.Items.Add(new ComboBoxItem { Content = Loc.T("Eigene RAM-Disk (selbst geschrieben)", "Built-in RAM disk (written from scratch)") });
+        _engineAuswahl.SelectedIndex = 1;
+        _engineAuswahl.SelectionChanged += async (_, _) => await StatusAktualisierenAsync();
+
+        var hinweis = new TextBlock
+        {
+            Text = Loc.T(
+                "Die eigene RAM-Disk läuft komplett innerhalb der Toolbox (eigene Speicherlogik, kein " +
+                "ImDisk-Code) - andockt über Dokan (freier, offener Treiber, github.com/dokan-dev/dokany). " +
+                "Wichtiger Unterschied zu ImDisk: sie existiert nur, solange Toolbox X geöffnet ist - beim " +
+                "Beenden der App ist sie weg (ImDisk-Disks überleben dagegen einen App-Neustart, bis zum " +
+                "nächsten Neustart des PCs oder explizitem Entfernen).",
+                "The built-in RAM disk runs entirely inside the Toolbox (own storage logic, no ImDisk " +
+                "code) - docked in via Dokan (free, open driver, github.com/dokan-dev/dokany). Important " +
+                "difference from ImDisk: it only exists while Toolbox X is open - it's gone once the app " +
+                "closes (ImDisk disks, by contrast, survive an app restart until the next PC reboot or " +
+                "explicit removal)."),
+            FontSize = 11,
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = (Brush)FindResource("TextMutedBrush"),
+            Margin = new Thickness(0, 4, 0, 10)
+        };
+
+        _dokanInstallierenPanel = new StackPanel { Visibility = Visibility.Collapsed };
+        var dokanErklaerung = new TextBlock
+        {
+            Text = Loc.T(
+                "Der offizielle Dokan-Installer liegt bereits bei - startet einen ganz normalen " +
+                "Installationsvorgang mit eigener Bestätigung, nichts läuft im Hintergrund.",
+                "The official Dokan installer is already included - it starts a completely normal " +
+                "installation with its own confirmation, nothing runs in the background."),
+            FontSize = 11,
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = (Brush)FindResource("TextMutedBrush"),
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        var dokanButton = new Button
+        {
+            Content = Loc.T("Dokan installieren", "Install Dokan"),
+            Padding = new Thickness(18, 10, 18, 10),
+            HorizontalAlignment = HorizontalAlignment.Left
+        };
+        dokanButton.Click += DokanInstallieren_Click;
+        _dokanInstallierenPanel.Children.Add(dokanErklaerung);
+        _dokanInstallierenPanel.Children.Add(dokanButton);
+
+        ProZusatzBereich.Children.Add(label);
+        ProZusatzBereich.Children.Add(_engineAuswahl);
+        ProZusatzBereich.Children.Add(hinweis);
+        ProZusatzBereich.Children.Add(_dokanInstallierenPanel);
+    }
+
+    private Task EigeneEngineStatusAktualisierenAsync()
+    {
+        InstallierenPanel.Visibility = Visibility.Collapsed;
+
+        if (!_eigeneRamDiskService.IstDokanInstalliert())
+        {
+            StatusText.Text = Loc.T("Dokan ist nicht installiert.", "Dokan is not installed.");
+            StatusText.Foreground = Brushes.OrangeRed;
+            ErstellenButton.IsEnabled = false;
+            EntfernenButton.IsEnabled = false;
+            _dokanInstallierenPanel.Visibility = _eigeneRamDiskService.InstallerVorhanden()
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            MeldungText.Text = _eigeneRamDiskService.InstallerVorhanden()
+                ? ""
+                : Loc.T("Kein Installer gefunden - bitte manuell laden: github.com/dokan-dev/dokany",
+                        "No installer found - please download manually: github.com/dokan-dev/dokany");
+            return Task.CompletedTask;
+        }
+
+        _dokanInstallierenPanel.Visibility = Visibility.Collapsed;
+
+        if (_eigeneRamDiskService.IstAktiv)
+        {
+            var buchstabe = _eigeneRamDiskService.AktiverLaufwerksbuchstabe!.Value;
+            var laufwerk = System.IO.DriveInfo.GetDrives()
+                .FirstOrDefault(d => d.Name.StartsWith($"{buchstabe}:", StringComparison.OrdinalIgnoreCase) && d.IsReady);
+            var groesseGb = laufwerk is null ? 0 : Math.Round(laufwerk.TotalSize / 1024.0 / 1024 / 1024, 2);
+            var freiGb = laufwerk is null ? 0 : Math.Round(laufwerk.AvailableFreeSpace / 1024.0 / 1024 / 1024, 2);
+
+            StatusText.Text = Loc.T(
+                $"Aktiv: Laufwerk {buchstabe}: ({groesseGb:0.0} GB, {freiGb:0.0} GB frei) - läuft nur, solange Toolbox X geöffnet ist.",
+                $"Active: Drive {buchstabe}: ({groesseGb:0.0} GB, {freiGb:0.0} GB free) - runs only while Toolbox X is open.");
+            StatusText.Foreground = Brushes.LimeGreen;
+            ErstellenButton.IsEnabled = false;
+            EntfernenButton.IsEnabled = true;
+        }
+        else
+        {
+            StatusText.Text = Loc.T(
+                $"Laufwerk {AusgewaehlterLaufwerksbuchstabe()}: ist aktuell keine eigene RAM-Disk.",
+                $"Drive {AusgewaehlterLaufwerksbuchstabe()}: is not currently a built-in RAM disk.");
+            StatusText.Foreground = (Brush)FindResource("TextMutedBrush");
+            ErstellenButton.IsEnabled = true;
+            EntfernenButton.IsEnabled = false;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void DokanInstallieren_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        var button = (Button)sender;
+        button.IsEnabled = false;
+        var gestartet = _eigeneRamDiskService.InstallerStarten();
+        MeldungText.Text = gestartet
+            ? Loc.T("Installer gestartet - folge dem Installationsdialog. Wenn er fertig ist, hier 'Aktualisieren' " +
+                    "bzw. das Modul neu öffnen, damit Dokan erkannt wird.",
+                    "Installer started - follow the installation dialog. When it's done, 'Refresh' here " +
+                    "or reopen the module so Dokan is detected.")
+            : Loc.T("Installer konnte nicht gestartet werden (z.B. UAC abgelehnt).",
+                    "Installer could not be started (e.g. UAC declined).");
+        MeldungText.Foreground = gestartet ? Brushes.LimeGreen : Brushes.OrangeRed;
+        button.IsEnabled = true;
+    }
+#endif
 }

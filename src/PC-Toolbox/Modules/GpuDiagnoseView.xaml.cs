@@ -1,11 +1,16 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Media;
 using System.Windows.Threading;
 using PCToolbox.Converters;
 using PCToolbox.Models;
 using PCToolbox.Services;
 using PCToolboxCore;
+#if PRO_BUILD
+using PCToolbox.Services.Pro;
+#endif
 
 namespace PCToolbox.Modules;
 
@@ -13,7 +18,15 @@ public partial class GpuDiagnoseView : UserControl
 {
     private readonly GpuDetectionService _erkennung = new();
     private readonly VramTestService _vramTest = new();
+    private readonly DirectXDiagnoseService _dxDiagDienst = new();
+    private readonly SpeicherdiagnoseService _speicherdiagnoseDienst = new();
     private CancellationTokenSource? _laufenderTest;
+    private string _letzterDxDiagPfad = "";
+
+#if PRO_BUILD
+    private readonly EigenerVramTestService _eigenerVramTest = new();
+    private ComboBox _testmotorAuswahl = null!;
+#endif
 
     // Pollt die Live-Auslastung, waehrend diese Ansicht sichtbar ist. Wird in
     // Unloaded gestoppt - sonst liefe der Timer im Hintergrund weiter, sobald
@@ -54,6 +67,22 @@ public partial class GpuDiagnoseView : UserControl
         TestmotorHinweis.Text = Loc.T(
             "VRAM-Testmotor: memtest_vulkan von GpuZelenograd (zlib-Lizenz, Open Source) - github.com/GpuZelenograd/memtest_vulkan",
             "VRAM test engine: memtest_vulkan by GpuZelenograd (zlib license, open source) - github.com/GpuZelenograd/memtest_vulkan");
+
+        RamDirectXTitel.Text = Loc.T("RAM- & DirectX-Diagnose", "RAM & DirectX diagnostics");
+        RamDirectXEinleitung.Text = Loc.T(
+            "Zwei weitere Windows-Bordmittel: ein DirectX-Diagnosebericht (Version + Windows' eigene " +
+            "Problem-Zusammenfassung zu Anzeige/Sound/Eingabe) und die Windows-Speicherdiagnose (testet " +
+            "die Arbeitsspeicher-Riegel selbst, nicht die Grafikkarte - läuft beim nächsten Neustart).",
+            "Two more Windows built-in tools: a DirectX diagnostic report (version + Windows' own problem " +
+            "summary for display/sound/input) and the Windows Memory Diagnostic (tests the RAM sticks " +
+            "themselves, not the graphics card - runs on the next restart).");
+        DxDiagButton.Content = Loc.T("DirectX-Bericht erstellen", "Create DirectX report");
+        SpeicherdiagnoseButton.Content = Loc.T("RAM-Test planen …", "Schedule RAM test…");
+        DxDiagSpeichernButton.Content = Loc.T("Vollständigen Bericht speichern unter …", "Save full report as…");
+
+#if PRO_BUILD
+        BauTestmotorBereich();
+#endif
 
         _auslastungsTimer.Tick += async (_, _) => await AuslastungAktualisierenAsync();
 
@@ -128,7 +157,13 @@ public partial class GpuDiagnoseView : UserControl
         _laufenderTest = new CancellationTokenSource();
         var fortschritt = new Progress<string>(text => StatusZeile.Text = text);
 
+#if PRO_BUILD
+        var ergebnis = _testmotorAuswahl.SelectedIndex == 1
+            ? await _eigenerVramTest.TestenAsync(dauer, fortschritt, _laufenderTest.Token)
+            : await _vramTest.TestenAsync(dauer, fortschritt, _laufenderTest.Token);
+#else
         var ergebnis = await _vramTest.TestenAsync(dauer, fortschritt, _laufenderTest.Token);
+#endif
 
         ErgebnisTitel.Inlines.Clear();
         ErgebnisTitel.Inlines.Add(new InlineUIContainer(AmpelIconFactory.Build(ergebnis.Ampel)) { BaselineAlignment = BaselineAlignment.Center });
@@ -143,6 +178,128 @@ public partial class GpuDiagnoseView : UserControl
     }
 
     private void Abbrechen_Click(object sender, RoutedEventArgs e) => _laufenderTest?.Cancel();
+
+    private async void DxDiagErstellen_Click(object sender, RoutedEventArgs e)
+    {
+        DxDiagButton.IsEnabled = false;
+        DxDiagSpeichernButton.Visibility = Visibility.Collapsed;
+        DxDiagNotizenListe.Children.Clear();
+        DxDiagStatusText.Text = Loc.T("Erstelle DirectX-Bericht …", "Creating DirectX report…");
+
+        var (auswertung, pfad) = await _dxDiagDienst.BerichtErstellenAsync();
+        _letzterDxDiagPfad = pfad;
+
+        DxDiagButton.IsEnabled = true;
+
+        if (auswertung.Version is null)
+        {
+            DxDiagStatusText.Text = Loc.T("Bericht konnte nicht ausgewertet werden.", "Report could not be evaluated.");
+            return;
+        }
+
+        var alleUnauffaellig = auswertung.Notizen.All(n => n.IstUnauffaellig);
+        DxDiagStatusText.Text = Loc.T(
+            $"{(alleUnauffaellig ? "✔" : "⚠️")} {auswertung.Version} · " +
+            $"{(alleUnauffaellig ? "keine Probleme gefunden" : "Windows meldet mögliche Probleme, siehe unten")}",
+            $"{(alleUnauffaellig ? "✔" : "⚠️")} {auswertung.Version} · " +
+            $"{(alleUnauffaellig ? "no problems found" : "Windows reports possible problems, see below")}");
+        DxDiagStatusText.FontWeight = FontWeights.SemiBold;
+        DxDiagStatusText.Foreground = (Brush)FindResource(alleUnauffaellig ? "OkBrush" : "WarnBrush");
+
+        foreach (var notiz in auswertung.Notizen.Where(n => !n.IstUnauffaellig))
+        {
+            DxDiagNotizenListe.Children.Add(new TextBlock
+            {
+                Text = $"⚠️ {notiz.Bereich}: {notiz.Befund}",
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = (Brush)FindResource("WarnBrush"),
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+        }
+
+        if (!string.IsNullOrEmpty(pfad))
+            DxDiagSpeichernButton.Visibility = Visibility.Visible;
+    }
+
+    private void DxDiagSpeichern_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(_letzterDxDiagPfad) || !File.Exists(_letzterDxDiagPfad)) return;
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            FileName = "DirectX-Bericht.txt",
+            Filter = Loc.T("Textdatei (*.txt)|*.txt", "Text file (*.txt)|*.txt")
+        };
+        if (dialog.ShowDialog() == true)
+            File.Copy(_letzterDxDiagPfad, dialog.FileName, overwrite: true);
+    }
+
+    private void Speicherdiagnose_Click(object sender, RoutedEventArgs e)
+    {
+        var frage = MessageBox.Show(
+            Loc.T(
+                "Öffnet Windows' eigene Speicherdiagnose. Dort wählst du \"Jetzt neu starten und nach " +
+                "Problemen suchen\" oder \"Beim nächsten Systemstart nach Problemen suchen\" - der Test " +
+                "läuft dann vor dem Windows-Start, dauert je nach RAM-Größe mehrere Minuten und der PC " +
+                "startet danach automatisch neu in Windows.",
+                "Opens Windows' own Memory Diagnostic. There you choose \"Restart now and check for " +
+                "problems\" or \"Check for problems the next time I start my computer\" - the test then " +
+                "runs before Windows starts, takes several minutes depending on RAM size, and the PC " +
+                "automatically restarts into Windows afterward."),
+            Loc.T("Windows-Speicherdiagnose öffnen", "Open Windows Memory Diagnostic"),
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Information);
+
+        if (frage == MessageBoxResult.OK)
+            _speicherdiagnoseDienst.Starten();
+    }
+
+#if PRO_BUILD
+    /// <summary>
+    /// Motor-Auswahl zwischen memtest_vulkan (extern, dieselbe Engine wie Free) und dem
+    /// selbst geschriebenen Vulkan-Compute-Test (s. EigenerVramTestService,
+    /// GPU_DIAGNOSE_VISION.md "Alleinstellungsmerkmal"). Standardmaessig ist der eigene Test
+    /// vorausgewaehlt - genau das Feature, das Pro von Free unterscheidet, soll nicht
+    /// versteckt in einem zweiten Klick liegen.
+    /// </summary>
+    private void BauTestmotorBereich()
+    {
+        var label = new TextBlock
+        {
+            Text = Loc.T("Testmotor (Pro):", "Test engine (Pro):"),
+            FontSize = 12,
+            Foreground = (Brush)FindResource("TextMutedBrush"),
+            Margin = new Thickness(0, 0, 0, 4)
+        };
+
+        _testmotorAuswahl = new ComboBox { Width = 260, HorizontalAlignment = HorizontalAlignment.Left };
+        _testmotorAuswahl.Items.Add(new ComboBoxItem { Content = Loc.T("memtest_vulkan (extern, wie Free)", "memtest_vulkan (external, same as Free)") });
+        _testmotorAuswahl.Items.Add(new ComboBoxItem { Content = Loc.T("Eigener Test (selbst geschrieben)", "Built-in test (written from scratch)") });
+        _testmotorAuswahl.SelectedIndex = 1;
+
+        var hinweis = new TextBlock
+        {
+            Text = Loc.T(
+                "Der eigene Test läuft komplett innerhalb der Toolbox (keine externe .exe), testet echten " +
+                "Grafikspeicher direkt über eigene Compute-Shader - kein fremder Code, aber noch jünger als " +
+                "memtest_vulkan (weniger Praxiserfahrung). Bei Zweifeln an einem Ergebnis lohnt sich ein " +
+                "Gegentest mit der jeweils anderen Engine.",
+                "The built-in test runs entirely inside the Toolbox (no external .exe), tests real graphics " +
+                "memory directly via its own compute shaders - no third-party code, but younger than " +
+                "memtest_vulkan (less real-world track record). If you doubt a result, cross-checking with " +
+                "the other engine is worthwhile."),
+            FontSize = 11,
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = (Brush)FindResource("TextMutedBrush"),
+            Margin = new Thickness(0, 4, 0, 0)
+        };
+
+        ProZusatzBereich.Children.Add(label);
+        ProZusatzBereich.Children.Add(_testmotorAuswahl);
+        ProZusatzBereich.Children.Add(hinweis);
+    }
+#endif
 
     private class GpuZeile
     {

@@ -46,6 +46,30 @@ public class MemtestVulkanOutputParserTests
     }
 
     [Fact]
+    public void ZeileVerarbeiten_MitZeitpunkt_LandetInFehlerZeitpunkte()
+    {
+        var ergebnis = new PCToolboxCore.Models.VramTestParseResult();
+        var zeitpunkt = new DateTime(2026, 1, 1, 12, 0, 0);
+
+        MemtestVulkanOutputParser.ZeileVerarbeiten(
+            "Error found. Mode NEXT_RE_READ, total errors 0x1 out of 0x3C000000 (0.0000027%)", ergebnis, zeitpunkt);
+
+        Assert.Single(ergebnis.FehlerZeitpunkte);
+        Assert.Equal(zeitpunkt, ergebnis.FehlerZeitpunkte[0]);
+    }
+
+    [Fact]
+    public void ZeileVerarbeiten_OhneZeitpunkt_FehlerZeitpunkteBleibtLeer()
+    {
+        var ergebnis = new PCToolboxCore.Models.VramTestParseResult();
+
+        MemtestVulkanOutputParser.ZeileVerarbeiten(
+            "Error found. Mode NEXT_RE_READ, total errors 0x1 out of 0x3C000000 (0.0000027%)", ergebnis);
+
+        Assert.Empty(ergebnis.FehlerZeitpunkte);
+    }
+
+    [Fact]
     public void Parse_MehrereFehler_ZaehltJedenEinzeln()
     {
         var zeilen = new[]

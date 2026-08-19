@@ -97,18 +97,18 @@ public class DatentraegerService
 
         var befehl = DatentraegerBefehle.Formatieren(volume.Buchstabe, dateisystem, bezeichnung, schnell);
 
-        return AusfuehrenAsync(befehl,
+        return AusfuehrenAsync(volume.Buchstabe, befehl,
             Loc.T($"Laufwerk {volume.Buchstabe}: wurde mit {dateisystem} formatiert.",
                   $"Drive {volume.Buchstabe}: was formatted with {dateisystem}."));
     }
 
     public Task<(bool Erfolg, string Meldung)> BezeichnungAendernAsync(DatentraegerVolume volume, string bezeichnung) =>
-        AusfuehrenAsync(DatentraegerBefehle.BezeichnungAendern(volume.Buchstabe, bezeichnung),
+        AusfuehrenAsync(volume.Buchstabe, DatentraegerBefehle.BezeichnungAendern(volume.Buchstabe, bezeichnung),
             Loc.T($"Laufwerk {volume.Buchstabe}: heisst jetzt „{bezeichnung}\".",
                   $"Drive {volume.Buchstabe}: is now called \"{bezeichnung}\"."));
 
     public Task<(bool Erfolg, string Meldung)> BuchstabeAendernAsync(DatentraegerVolume volume, char neu) =>
-        AusfuehrenAsync(DatentraegerBefehle.BuchstabeAendern(volume.Buchstabe, neu),
+        AusfuehrenAsync(volume.Buchstabe, DatentraegerBefehle.BuchstabeAendern(volume.Buchstabe, neu),
             Loc.T($"Das Laufwerk ist jetzt unter {char.ToUpperInvariant(neu)}: erreichbar.",
                   $"The drive is now accessible at {char.ToUpperInvariant(neu)}:."));
 
@@ -123,7 +123,7 @@ public class DatentraegerService
             if (!pruefung.Erlaubt) return (false, pruefung.Begruendung);
         }
 
-        return await AusfuehrenAsync(DatentraegerBefehle.GroesseAendern(volume.Buchstabe, neueGroesse),
+        return await AusfuehrenAsync(volume.Buchstabe, DatentraegerBefehle.GroesseAendern(volume.Buchstabe, neueGroesse),
             Loc.T($"Die Größe von Laufwerk {volume.Buchstabe}: wurde geändert. Die Daten sind unverändert vorhanden.",
                   $"The size of drive {volume.Buchstabe}: was changed. The data is unchanged."));
     }
@@ -132,33 +132,33 @@ public class DatentraegerService
     /// Führt einen Speicherbefehl mit gezielter Rechteanhebung aus. Wie überall in der
     /// Toolbox: Die App selbst läuft ohne Admin-Rechte, die Nachfrage kommt nur für
     /// genau diese eine Aktion.
+    ///
+    /// Schlägt der erste Versuch fehl, wird automatisch EIN zweiter Versuch unternommen -
+    /// davor löst DatentraegerBefehle.LaufwerkFreigeben die häufigste Ursache ("Laufwerk wird
+    /// verwendet", meist nur ein offenes Explorer-Fenster) auf. Das läuft in derselben
+    /// bereits erhöhten PowerShell-Sitzung mit, kostet also keine zweite Windows-Sicherheits-
+    /// abfrage. Erst wenn auch das nicht hilft, wird ehrlich ein Fehler gemeldet.
     /// </summary>
-    private static Task<(bool Erfolg, string Meldung)> AusfuehrenAsync(string befehl, string erfolgsMeldung) =>
+    private static Task<(bool Erfolg, string Meldung)> AusfuehrenAsync(char buchstabe, string befehl, string erfolgsMeldung) =>
         Task.Run(() =>
         {
             try
             {
-                var start = new ProcessStartInfo("powershell.exe", DatentraegerBefehle.AlsArgumente(befehl))
-                {
-                    UseShellExecute = true,
-                    Verb = "runas",
-                    WindowStyle = ProcessWindowStyle.Hidden
-                };
+                if (BefehlAusfuehren(DatentraegerBefehle.AlsArgumente(befehl)))
+                    return (true, erfolgsMeldung);
 
-                using var prozess = Process.Start(start);
-                if (prozess is null) return (false, Loc.T("Der Vorgang konnte nicht gestartet werden.", "The operation could not be started."));
+                var freigabeUndBefehl = DatentraegerBefehle.LaufwerkFreigeben(buchstabe) + "; " + befehl;
+                if (BefehlAusfuehren(DatentraegerBefehle.AlsArgumente(freigabeUndBefehl)))
+                    return (true, erfolgsMeldung);
 
-                prozess.WaitForExit();
-
-                return prozess.ExitCode == 0
-                    ? (true, erfolgsMeldung)
-                    : (false, Loc.T(
-                          "Windows hat den Vorgang nicht ausgeführt. Häufigste Gründe: Das Laufwerk " +
-                          "ist gerade in Benutzung (ein offenes Fenster oder Programm darauf reicht " +
-                          "schon), oder es ist schreibgeschützt. Es wurde nichts verändert.",
-                          "Windows did not carry out the operation. Most common reasons: the drive " +
-                          "is currently in use (an open window or program on it is enough), " +
-                          "or it is write-protected. Nothing was changed."));
+                return (false, Loc.T(
+                    "Windows hat den Vorgang auch nach einem automatischen zweiten Versuch (Laufwerkssperre " +
+                    "lösen) nicht ausgeführt. Meist hilft: den Stick kurz abziehen und neu einstecken, oder " +
+                    "ein Programm im Hintergrund schließen, das noch darauf zugreift (z.B. ein Virenscan). " +
+                    "Es wurde nichts verändert.",
+                    "Windows did not carry out the operation even after an automatic second attempt " +
+                    "(releasing the drive lock). Usually helps: unplug and replug the stick, or close a " +
+                    "background program still accessing it (e.g. antivirus). Nothing was changed."));
             }
             catch (System.ComponentModel.Win32Exception)
             {
@@ -169,4 +169,20 @@ public class DatentraegerService
                     "Nothing was changed."));
             }
         });
+
+    private static bool BefehlAusfuehren(string argumente)
+    {
+        var start = new ProcessStartInfo("powershell.exe", argumente)
+        {
+            UseShellExecute = true,
+            Verb = "runas",
+            WindowStyle = ProcessWindowStyle.Hidden
+        };
+
+        using var prozess = Process.Start(start);
+        if (prozess is null) return false;
+
+        prozess.WaitForExit();
+        return prozess.ExitCode == 0;
+    }
 }

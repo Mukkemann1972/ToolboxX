@@ -102,6 +102,15 @@
                 </Button>
 
                 <Button Style="{StaticResource TileCardStyle}" Width="190" Height="120" Margin="0,0,14,14"
+                        Tag="AkkuGesundheit" Click="Kachel_Click">
+                    <StackPanel>
+                        <TextBlock Text="🔋" FontSize="26" />
+                        <TextBlock x:Name="TitelAkku" FontSize="16" FontWeight="SemiBold" FontFamily="{StaticResource BodyFontFamily}" Margin="0,8,0,2" />
+                        <TextBlock x:Name="BeschrAkku" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Button>
+
+                <Button Style="{StaticResource TileCardStyle}" Width="190" Height="120" Margin="0,0,14,14"
                         Tag="Datentraeger" Click="Kachel_Click">
                     <StackPanel>
                         <TextBlock Text="🗄️" FontSize="26" />
@@ -156,6 +165,15 @@
                 </Button>
 
                 <Button Style="{StaticResource TileCardStyle}" Width="190" Height="120" Margin="0,0,14,14"
+                        Tag="Datenrettung" Click="Kachel_Click">
+                    <StackPanel>
+                        <TextBlock Text="🩺" FontSize="26" />
+                        <TextBlock x:Name="TitelDatenrettung" FontSize="16" FontWeight="SemiBold" FontFamily="{StaticResource BodyFontFamily}" Margin="0,8,0,2" />
+                        <TextBlock x:Name="BeschrDatenrettung" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Button>
+
+                <Button Style="{StaticResource TileCardStyle}" Width="190" Height="120" Margin="0,0,14,14"
                         Tag="Bios" Click="Kachel_Click">
                     <StackPanel>
                         <TextBlock Text="📖" FontSize="26" />
@@ -192,6 +210,15 @@
                 </Button>
 
                 <Button Style="{StaticResource TileCardStyle}" Width="190" Height="120" Margin="0,0,14,14"
+                        Tag="LegacyWerkzeuge" Click="Kachel_Click">
+                    <StackPanel>
+                        <TextBlock Text="🧰" FontSize="26" />
+                        <TextBlock x:Name="TitelLegacyWerkzeuge" FontSize="16" FontWeight="SemiBold" FontFamily="{StaticResource BodyFontFamily}" Margin="0,8,0,2" />
+                        <TextBlock x:Name="BeschrLegacyWerkzeuge" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Button>
+
+                <Button Style="{StaticResource TileCardStyle}" Width="190" Height="120" Margin="0,0,14,14"
                         Tag="Drucker" Click="Kachel_Click">
                     <StackPanel>
                         <TextBlock Text="🖨️" FontSize="26" />
@@ -206,6 +233,15 @@
                         <TextBlock Text="🔌" FontSize="26" />
                         <TextBlock x:Name="TitelUsb" FontSize="16" FontWeight="SemiBold" FontFamily="{StaticResource BodyFontFamily}" Margin="0,8,0,2" />
                         <TextBlock x:Name="BeschrUsb" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Button>
+
+                <Button Style="{StaticResource TileCardStyle}" Width="190" Height="120" Margin="0,0,14,14"
+                        Tag="MausDiagnose" Click="Kachel_Click">
+                    <StackPanel>
+                        <TextBlock Text="🖱️" FontSize="26" />
+                        <TextBlock x:Name="TitelMaus" FontSize="16" FontWeight="SemiBold" FontFamily="{StaticResource BodyFontFamily}" Margin="0,8,0,2" />
+                        <TextBlock x:Name="BeschrMaus" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" />
                     </StackPanel>
                 </Button>
             </WrapPanel>

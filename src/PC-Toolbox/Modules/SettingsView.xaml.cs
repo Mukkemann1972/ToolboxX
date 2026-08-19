@@ -1,10 +1,15 @@
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using Microsoft.Win32;
 using PCToolboxCore;
 using PCToolboxCore.Models;
 using PCToolboxCore.Services;
+#if PRO_BUILD
+using PCToolboxCore.Pro;
+#endif
 
 namespace PCToolbox.Modules;
 
@@ -28,6 +33,10 @@ public partial class SettingsView : UserControl
     private AppTheme _pendingTheme;
     private string _pendingAccent;
     private Sprache _pendingSprache;
+
+#if PRO_BUILD
+    private TextBlock _profilStatusText = null!;
+#endif
 
     public SettingsView()
     {
@@ -75,6 +84,10 @@ public partial class SettingsView : UserControl
         }
 
         RefreshAuswahl();
+
+#if PRO_BUILD
+        BauToolboxProfilBereich();
+#endif
     }
 
     private void ThemeDunkel_Click(object sender, RoutedEventArgs e)
@@ -155,4 +168,151 @@ public partial class SettingsView : UserControl
 
         Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{pfad}\"") { UseShellExecute = true });
     }
+
+#if PRO_BUILD
+    /// <summary>
+    /// "Toolbox-Profil" (Pro, Hermes-Vorschlag 17.08.2026): Einstellungen einmal
+    /// konfigurieren, als JSON exportieren, auf einem anderen PC importieren. Import
+    /// zeigt vorher eine "Diese Werte werden geaendert"-Vorschau statt still zu
+    /// ueberschreiben (s. Team-Konvention, Ampel-Prinzip).
+    /// </summary>
+    private void BauToolboxProfilBereich()
+    {
+        ProProfilBereich.Children.Add(new TextBlock
+        {
+            Text = Loc.T("TOOLBOX-PROFIL (PRO)", "TOOLBOX PROFILE (PRO)"),
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = (Brush)FindResource("TextMutedBrush"),
+            Margin = new Thickness(0, 0, 0, 8)
+        });
+        ProProfilBereich.Children.Add(new TextBlock
+        {
+            Text = Loc.T(
+                "Speichert Theme, Akzentfarbe und Sprache in einer Datei - praktisch, um dieselbe " +
+                "Optik/Konfiguration auf mehreren PCs zu uebernehmen (z.B. in der Werkstatt), statt " +
+                "jedes Mal von Hand einzustellen.",
+                "Saves theme, accent color, and language into a file - handy for carrying the same " +
+                "look/configuration over to other PCs (e.g. in a workshop), instead of setting it up " +
+                "by hand every time."),
+            FontSize = 12,
+            Foreground = (Brush)FindResource("TextMutedBrush"),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 12)
+        });
+
+        var knopfZeile = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 10) };
+
+        var exportButton = new Button
+        {
+            Content = Loc.T("Exportieren …", "Export …"),
+            Padding = new Thickness(18, 10, 18, 10),
+            Margin = new Thickness(0, 0, 14, 0)
+        };
+        exportButton.Click += ProfilExportieren_Click;
+
+        var importButton = new Button
+        {
+            Content = Loc.T("Importieren …", "Import …"),
+            Padding = new Thickness(18, 10, 18, 10)
+        };
+        importButton.Click += ProfilImportieren_Click;
+
+        knopfZeile.Children.Add(exportButton);
+        knopfZeile.Children.Add(importButton);
+        ProProfilBereich.Children.Add(knopfZeile);
+
+        _profilStatusText = new TextBlock { FontSize = 13, TextWrapping = TextWrapping.Wrap };
+        ProProfilBereich.Children.Add(_profilStatusText);
+    }
+
+    private void ProfilExportieren_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = Loc.T("Toolbox-Profil exportieren", "Export Toolbox profile"),
+            Filter = "Toolbox-X-Profil (*.json)|*.json",
+            FileName = $"toolboxx-profil-{DateTime.Now:yyyy-MM-dd}.json"
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        var profil = ToolboxProfilDienst.Erstellen(SettingsService.Load());
+        File.WriteAllText(dialog.FileName, ToolboxProfilDienst.AlsJson(profil));
+
+        ZeigeProfilStatus(
+            Loc.T($"✔ Profil gespeichert: {Path.GetFileName(dialog.FileName)}",
+                  $"✔ Profile saved: {Path.GetFileName(dialog.FileName)}"),
+            erfolg: true);
+    }
+
+    private void ProfilImportieren_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = Loc.T("Toolbox-Profil importieren", "Import Toolbox profile"),
+            Filter = "Toolbox-X-Profil (*.json)|*.json"
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        string json;
+        try
+        {
+            json = File.ReadAllText(dialog.FileName);
+        }
+        catch (IOException)
+        {
+            ZeigeProfilImportFehler();
+            return;
+        }
+
+        var profil = ToolboxProfilDienst.AusJson(json);
+        if (profil is null)
+        {
+            ZeigeProfilImportFehler();
+            return;
+        }
+
+        var aktuell = SettingsService.Load();
+        var aenderungen = ToolboxProfilDienst.Vergleichen(profil, aktuell);
+
+        if (aenderungen.Count == 0)
+        {
+            ZeigeProfilStatus(
+                Loc.T("Keine Änderungen - das Profil entspricht bereits den aktuellen Einstellungen.",
+                      "No changes - the profile already matches the current settings."),
+                erfolg: true);
+            return;
+        }
+
+        var aenderungsText = string.Join("\n", aenderungen.Select(a => $"• {a.Feld}: {a.AlterWert} → {a.NeuerWert}"));
+        var antwort = MessageBox.Show(
+            Loc.T($"Folgende Werte werden geändert:\n\n{aenderungsText}\n\nÜbernehmen? Toolbox X startet danach kurz neu.",
+                  $"The following values will change:\n\n{aenderungsText}\n\nApply? Toolbox X will briefly restart afterward."),
+            Loc.T("Toolbox-Profil anwenden", "Apply Toolbox profile"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (antwort != MessageBoxResult.Yes) return;
+
+        SettingsService.Save(ToolboxProfilDienst.ZuAppSettings(profil));
+
+        var exePath = Environment.ProcessPath;
+        if (exePath != null)
+            Process.Start(new ProcessStartInfo(exePath) { UseShellExecute = true });
+
+        System.Windows.Application.Current.Shutdown();
+    }
+
+    private void ZeigeProfilImportFehler() => ZeigeProfilStatus(
+        Loc.T("✘ Diese Datei ist kein gültiges Toolbox-Profil (kaputt, falsches Format oder aus einer neueren Toolbox-X-Version).",
+              "✘ This file is not a valid Toolbox profile (corrupt, wrong format, or from a newer Toolbox X version)."),
+        erfolg: false);
+
+    private void ZeigeProfilStatus(string text, bool erfolg)
+    {
+        _profilStatusText.Text = text;
+        _profilStatusText.FontWeight = FontWeights.SemiBold;
+        _profilStatusText.Foreground = (Brush)FindResource(erfolg ? "OkBrush" : "DangerBrush");
+    }
+#endif
 }

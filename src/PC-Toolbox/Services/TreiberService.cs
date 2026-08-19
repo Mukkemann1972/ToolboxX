@@ -44,6 +44,7 @@ public class TreiberService
                 {
                     befund.TreiberVersion = treiber.Version;
                     befund.TreiberDatum = treiber.Datum;
+                    befund.TreiberDateiname = treiber.Dateiname;
                 }
 
                 geraete.Add(befund);
@@ -58,21 +59,24 @@ public class TreiberService
         return geraete;
     }
 
-    private static Dictionary<string, (string? Version, DateTime? Datum)> TreiberInfosLesen()
+    private static Dictionary<string, (string? Version, DateTime? Datum, string? Dateiname)> TreiberInfosLesen()
     {
-        var infos = new Dictionary<string, (string?, DateTime?)>(StringComparer.OrdinalIgnoreCase);
+        var infos = new Dictionary<string, (string?, DateTime?, string?)>(StringComparer.OrdinalIgnoreCase);
 
         try
         {
+            // DriverName liefert den reinen Dateinamen des Treibers (z.B. "nvlddmkm.sys") - die
+            // Grundlage für den Abgleich mit dem Verursacher-Modul aus einem Absturz-Minidump
+            // (s. TreiberBluescreenKorrelation).
             using var suche = new ManagementObjectSearcher(
-                "SELECT DeviceID, DriverVersion, DriverDate FROM Win32_PnPSignedDriver");
+                "SELECT DeviceID, DriverVersion, DriverDate, DriverName FROM Win32_PnPSignedDriver");
 
             foreach (var o in suche.Get())
             {
                 var id = o["DeviceID"]?.ToString();
                 if (string.IsNullOrWhiteSpace(id)) continue;
 
-                infos[id] = (o["DriverVersion"]?.ToString(), WmiDatum.Parse(o["DriverDate"]?.ToString()));
+                infos[id] = (o["DriverVersion"]?.ToString(), WmiDatum.Parse(o["DriverDate"]?.ToString()), o["DriverName"]?.ToString());
             }
         }
         catch (ManagementException)

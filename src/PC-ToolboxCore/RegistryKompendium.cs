@@ -145,4 +145,21 @@ public static class RegistryKompendium
 
     private static RegistryBefund Unbekannt() =>
         new(Loc.T("Wert nicht wie erwartet - keine Deutung möglich.", "Value not as expected - no interpretation possible."), AmpelStatus.Unbekannt);
+
+    /// <summary>
+    /// Der empfohlene Wert für die Pro-Aktion "Auf Empfehlung zurücksetzen" (s.
+    /// Services/Pro/RegistryZuruecksetzenService.cs) - bewusst nur für Stellen definiert, wo eine
+    /// eindeutige Empfehlung Sinn ergibt. "versteckte-dateien" und "windows-info" fehlen absichtlich:
+    /// Ersteres ist reine Geschmackssache ohne Sicherheitsaussage, Letzteres ist nur Information,
+    /// kein Zustand zum Ändern.
+    /// </summary>
+    public static RegistryEmpfehlung? EmpfehlungFuer(string eintragId) => eintragId switch
+    {
+        "dateiendungen" => new RegistryEmpfehlung(0, RegistryWertArt.Zahl),
+        "uac-stufe" => new RegistryEmpfehlung(5, RegistryWertArt.Zahl),
+        "autologon" => new RegistryEmpfehlung("0", RegistryWertArt.Text),
+        "remotedesktop" => new RegistryEmpfehlung(1, RegistryWertArt.Zahl),
+        "autorun" => new RegistryEmpfehlung(255, RegistryWertArt.Zahl),
+        _ => null
+    };
 }

@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Management;
+using System.Text.Json;
 using PCToolbox.Models;
 using PCToolboxCore;
 
@@ -79,7 +81,10 @@ public class SmartService
                 // der WMI-Klassen fehlt. Dann bleibt das Modell eben leer.
             }
 
-            // 3) SMART-Rohwerte aus root\WMI (braucht i.d.R. Administrator-Rechte)
+            // 3) SMART-Rohwerte aus root\WMI (braucht i.d.R. Administrator-Rechte) - deckt nur
+            // ATA/IDE ab, NVMe-Laufwerke bleiben hier IMMER ohne Werte (anderer WMI-Provider,
+            // s. Schritt 4 unten).
+            string? ataFehlerHinweis = null;
             try
             {
                 var scope = new ManagementScope(@"root\WMI");
@@ -139,35 +144,133 @@ public class SmartService
                         (target.SmartAmpel, target.Erklaerung) = BewerteSmart(target);
                     }
                 }
-
-                // Laufwerke, die gar keine SMART-Werte liefern, bekommen eine Erklärung
-                // statt eines nackten Fragezeichens ohne Text (so war es vorher zu sehen).
-                MarkiereSmartAlsGesperrt(disks, Loc.T(
-                    "Dieses Laufwerk liefert keine SMART-Werte. Häufig bei USB-Gehäusen (die Brücke gibt sie nicht durch), " +
-                    "bei manchen NVMe-Chipsätzen und bei virtuellen Laufwerken. Kein Hinweis auf einen Defekt - " +
-                    "es lässt sich darüber nur nichts sagen.",
-                    "This drive doesn't report SMART values. Common with USB enclosures (the bridge chip doesn't pass them through), " +
-                    "some NVMe chipsets, and virtual drives. Not a sign of a fault - there's simply nothing to report here."));
             }
             catch (UnauthorizedAccessException)
             {
-                MarkiereSmartAlsGesperrt(disks, Loc.T(
+                ataFehlerHinweis = Loc.T(
                     "SMART-Zugriff verweigert → Toolbox als Administrator neu starten.",
-                    "SMART access denied → restart Toolbox X as Administrator."));
+                    "SMART access denied → restart Toolbox X as Administrator.");
             }
             catch (ManagementException)
             {
-                MarkiereSmartAlsGesperrt(disks, Loc.T(
-                    "SMART-Werte nicht verfügbar (WMI-Klasse fehlt, z.B. bei NVMe über manche Chipsätze oder virtuellen Datenträgern).",
-                    "SMART values not available (WMI class missing, e.g. for NVMe on some chipsets or virtual drives)."));
+                ataFehlerHinweis = Loc.T(
+                    "SMART-Werte nicht verfügbar (WMI-Klasse fehlt, z.B. bei virtuellen Datenträgern).",
+                    "SMART values not available (WMI class missing, e.g. for virtual drives).");
             }
             catch (Exception ex)
             {
-                MarkiereSmartAlsGesperrt(disks, Loc.T($"SMART-Abfrage fehlgeschlagen: {ex.Message}", $"SMART query failed: {ex.Message}"));
+                ataFehlerHinweis = Loc.T($"SMART-Abfrage fehlgeschlagen: {ex.Message}", $"SMART query failed: {ex.Message}");
             }
+
+            // 4) NVMe-Gesundheitswerte für alles, was Schritt 3 nicht abdecken konnte (die
+            // klassische MSStorageDriver_FailurePredict*-Abfrage ist ATA/IDE-only) - eigener,
+            // neuerer Windows-Pfad (Get-StorageReliabilityCounter). Läuft unabhängig davon, ob
+            // Schritt 3 einen Fehler hatte oder nicht, denn "ATA-Provider meldet nichts für dieses
+            // Laufwerk" ist der NORMALFALL bei NVMe, kein Fehler.
+            NvmeWerteLaden(disks);
+
+            // Laufwerke, die auch nach beiden Versuchen keine Werte liefern, bekommen eine
+            // Erklärung statt eines nackten Fragezeichens ohne Text.
+            MarkiereSmartAlsGesperrt(disks, ataFehlerHinweis ?? Loc.T(
+                "Dieses Laufwerk liefert keine SMART-Werte. Häufig bei USB-Gehäusen (die Brücke gibt sie nicht durch) " +
+                "und bei virtuellen Laufwerken. Kein Hinweis auf einen Defekt - es lässt sich darüber nur nichts sagen.",
+                "This drive doesn't report SMART values. Common with USB enclosures (the bridge chip doesn't pass them " +
+                "through) and virtual drives. Not a sign of a fault - there's simply nothing to report here."));
 
             return disks;
         });
+    }
+
+    /// <summary>
+    /// NVMe-Gesundheitswerte über PowerShells Storage-Modul (Get-PhysicalDisk +
+    /// Get-StorageReliabilityCounter) - der modernere Nachfolger der ATA-only WMI-Klasse oben.
+    /// Läuft unelevated zuerst (wie die ATA-Abfrage auch); schlägt es fehl, bleibt das Laufwerk
+    /// einfach ohne NVMe-Werte, die abschließende MarkiereSmartAlsGesperrt-Erklärung greift dann.
+    /// </summary>
+    private static void NvmeWerteLaden(List<DiskInfo> disks)
+    {
+        var ziele = disks.Where(d => !d.SmartVerfuegbar && d.PhysischesLaufwerk.Length > 0).ToList();
+        if (ziele.Count == 0) return;
+
+        string ausgabe;
+        try
+        {
+            var start = new System.Diagnostics.ProcessStartInfo("powershell.exe",
+                "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command " +
+                "\"Get-PhysicalDisk | Where-Object BusType -eq 'NVMe' | ForEach-Object { " +
+                "$r = $_ | Get-StorageReliabilityCounter; " +
+                "[PSCustomObject]@{ DeviceId = $_.DeviceId; Wear = $r.Wear; Temperature = $r.Temperature; " +
+                "PowerOnHours = $r.PowerOnHours; ReadErrorsUncorrected = $r.ReadErrorsUncorrected; " +
+                "WriteErrorsUncorrected = $r.WriteErrorsUncorrected } } | ConvertTo-Json -Compress\"")
+            {
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                CreateNoWindow = true
+            };
+
+            using var prozess = System.Diagnostics.Process.Start(start);
+            if (prozess is null) return;
+
+            ausgabe = prozess.StandardOutput.ReadToEnd();
+            prozess.WaitForExit();
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(ausgabe)) return;
+
+        System.Text.Json.JsonDocument dokument;
+        try { dokument = System.Text.Json.JsonDocument.Parse(ausgabe); }
+        catch (System.Text.Json.JsonException) { return; }
+
+        using (dokument)
+        {
+            var wurzel = dokument.RootElement;
+            var elemente = wurzel.ValueKind == System.Text.Json.JsonValueKind.Array
+                ? wurzel.EnumerateArray()
+                : new[] { wurzel }.AsEnumerable();
+
+            foreach (var element in elemente)
+            {
+                if (!element.TryGetProperty("DeviceId", out var idEl)) continue;
+                var deviceId = idEl.ValueKind == System.Text.Json.JsonValueKind.String ? idEl.GetString() : idEl.ToString();
+                if (string.IsNullOrEmpty(deviceId)) continue;
+
+                // "\\.\PHYSICALDRIVE2" -> "2", zum Vergleich mit Get-PhysicalDisk's DeviceId
+                // (dort einfach die Plattennummer als String).
+                var ziel = ziele.FirstOrDefault(d =>
+                    d.PhysischesLaufwerk.EndsWith(deviceId, StringComparison.OrdinalIgnoreCase));
+                if (ziel is null) continue;
+
+                var wear = ZahlOderNull(element, "Wear");
+                var temperatur = ZahlOderNull(element, "Temperature");
+                var powerOnHours = ZahlOderNull(element, "PowerOnHours");
+                var lesefehler = ZahlOderNull(element, "ReadErrorsUncorrected") ?? 0;
+                var schreibfehler = ZahlOderNull(element, "WriteErrorsUncorrected") ?? 0;
+
+                ziel.SmartVerfuegbar = true;
+                ziel.AbnutzungProzent = wear;
+                ziel.TemperaturCelsius = temperatur;
+                ziel.PowerOnHours = powerOnHours.HasValue ? (long)powerOnHours.Value : null;
+                ziel.UnkorrigierbareFehler = (long)(lesefehler + schreibfehler);
+
+                (ziel.SmartAmpel, ziel.Erklaerung) = NvmeZuverlaessigkeitBewertung.Bewerten(
+                    new NvmeZuverlaessigkeitWerte(wear, temperatur, ziel.PowerOnHours, ziel.UnkorrigierbareFehler));
+            }
+        }
+    }
+
+    private static double? ZahlOderNull(System.Text.Json.JsonElement element, string feld)
+    {
+        if (!element.TryGetProperty(feld, out var wert)) return null;
+        return wert.ValueKind switch
+        {
+            System.Text.Json.JsonValueKind.Number => wert.GetDouble(),
+            System.Text.Json.JsonValueKind.String when double.TryParse(wert.GetString(), out var geparst) => geparst,
+            _ => null
+        };
     }
 
     /// <summary>

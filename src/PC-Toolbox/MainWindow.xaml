@@ -62,76 +62,110 @@
             <!-- SidebarPanel: der Name wird nur gebraucht, damit ein Pro-Build zur Laufzeit
                  (per Code, s. MainWindow.xaml.cs #if PRO_BUILD) eigene Eintraege anhaengen kann -
                  im Free-Build bleibt dieser Codepfad komplett unkompiliert, hier steht also
-                 nichts Pro-Spezifisches drin. -->
-            <StackPanel x:Name="SidebarPanel" Grid.Column="0" Background="{StaticResource BgPanelBrush}" Margin="0,10,0,0">
-                <RadioButton x:Name="NavUebersicht" GroupName="Nav" Style="{StaticResource SidebarItemStyle}"
-                             Checked="ZeigeUebersicht_Click">
-                    <TextBlock x:Name="NavUebersichtText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeDashboard_Click">
-                    <TextBlock x:Name="NavSystemText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeDiskCheck_Click">
-                    <TextBlock x:Name="NavLaufwerkeText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeTemperature_Click">
-                    <TextBlock x:Name="NavTemperaturText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeGpuDiagnose_Click">
-                    <TextBlock x:Name="NavGpuDiagnoseText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeRamDisk_Click">
-                    <TextBlock x:Name="NavRamDiskText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeAutostart_Click">
-                    <TextBlock x:Name="NavAutostartText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeDienste_Click">
-                    <TextBlock x:Name="NavDiensteText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeDatentraeger_Click">
-                    <TextBlock x:Name="NavDatentraegerText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeNetzwerk_Click">
-                    <TextBlock x:Name="NavNetzwerkText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeTreiber_Click">
-                    <TextBlock x:Name="NavTreiberText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeCommander_Click">
-                    <TextBlock x:Name="NavCommanderText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeBluescreen_Click">
-                    <TextBlock x:Name="NavBluescreenText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeSuperUninstaller_Click">
-                    <TextBlock x:Name="NavUninstallerText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeBiosKompendium_Click">
-                    <TextBlock x:Name="NavBiosText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeSaubermacher_Click">
-                    <TextBlock x:Name="NavSaubermacherText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeWindowsReparatur_Click">
-                    <TextBlock x:Name="NavWindowsReparaturText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeRegistryKompendium_Click">
-                    <TextBlock x:Name="NavRegistryText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeDrucker_Click">
-                    <TextBlock x:Name="NavDruckerText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeUsbGeraete_Click">
-                    <TextBlock x:Name="NavUsbText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeEntstehung_Click">
-                    <TextBlock x:Name="NavEntstehungText" />
-                </RadioButton>
-                <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeEinstellungen_Click">
-                    <TextBlock x:Name="NavEinstellungenText" />
-                </RadioButton>
-            </StackPanel>
+                 nichts Pro-Spezifisches drin. In einem ScrollViewer, weil die Liste mit allen
+                 Pro-Eintraegen laenger ist als ein normales Fenster hoch ist - ohne den waren
+                 die untersten Eintraege schlicht nicht erreichbar (live gemeldet).
+                 ProAnkerLaufwerke/ProAnkerWartung: unsichtbare Nullhoehe-Marker, an denen der
+                 Pro-Code seine Eintraege thematisch einsortiert statt sie alle an einer Stelle
+                 zu klumpen. -->
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Background="{StaticResource BgPanelBrush}">
+                <StackPanel x:Name="SidebarPanel" Margin="0,10,0,10">
+                    <RadioButton x:Name="NavUebersicht" GroupName="Nav" Style="{StaticResource SidebarItemStyle}"
+                                 Checked="ZeigeUebersicht_Click">
+                        <TextBlock x:Name="NavUebersichtText" />
+                    </RadioButton>
+
+                    <TextBlock x:Name="NavAbschnittSystem" Style="{StaticResource SidebarHeaderStyle}" />
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeDashboard_Click">
+                        <TextBlock x:Name="NavSystemText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeTemperature_Click">
+                        <TextBlock x:Name="NavTemperaturText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeGpuDiagnose_Click">
+                        <TextBlock x:Name="NavGpuDiagnoseText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeRamDisk_Click">
+                        <TextBlock x:Name="NavRamDiskText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeAutostart_Click">
+                        <TextBlock x:Name="NavAutostartText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeDienste_Click">
+                        <TextBlock x:Name="NavDiensteText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeAkkuGesundheit_Click">
+                        <TextBlock x:Name="NavAkkuText" />
+                    </RadioButton>
+
+                    <TextBlock x:Name="NavAbschnittLaufwerke" Style="{StaticResource SidebarHeaderStyle}" />
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeDiskCheck_Click">
+                        <TextBlock x:Name="NavLaufwerkeText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeDatentraeger_Click">
+                        <TextBlock x:Name="NavDatentraegerText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeCommander_Click">
+                        <TextBlock x:Name="NavCommanderText" />
+                    </RadioButton>
+                    <ContentPresenter x:Name="ProAnkerLaufwerke" />
+
+                    <TextBlock x:Name="NavAbschnittNetzwerk" Style="{StaticResource SidebarHeaderStyle}" />
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeNetzwerk_Click">
+                        <TextBlock x:Name="NavNetzwerkText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeTreiber_Click">
+                        <TextBlock x:Name="NavTreiberText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeDrucker_Click">
+                        <TextBlock x:Name="NavDruckerText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeUsbGeraete_Click">
+                        <TextBlock x:Name="NavUsbText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeMausDiagnose_Click">
+                        <TextBlock x:Name="NavMausText" />
+                    </RadioButton>
+
+                    <TextBlock x:Name="NavAbschnittWartung" Style="{StaticResource SidebarHeaderStyle}" />
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeSecurityAudit_Click">
+                        <TextBlock x:Name="NavSecurityAuditText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeBluescreen_Click">
+                        <TextBlock x:Name="NavBluescreenText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeSuperUninstaller_Click">
+                        <TextBlock x:Name="NavUninstallerText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeDatenrettung_Click">
+                        <TextBlock x:Name="NavDatenrettungText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeBiosKompendium_Click">
+                        <TextBlock x:Name="NavBiosText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeSaubermacher_Click">
+                        <TextBlock x:Name="NavSaubermacherText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeWindowsReparatur_Click">
+                        <TextBlock x:Name="NavWindowsReparaturText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeRegistryKompendium_Click">
+                        <TextBlock x:Name="NavRegistryText" />
+                    </RadioButton>
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeLegacyWerkzeuge_Click">
+                        <TextBlock x:Name="NavLegacyWerkzeugeText" />
+                    </RadioButton>
+                    <ContentPresenter x:Name="ProAnkerWartung" />
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeEntstehung_Click">
+                        <TextBlock x:Name="NavEntstehungText" />
+                    </RadioButton>
+
+                    <Separator Margin="10,8,10,8" Opacity="0.3" />
+                    <RadioButton GroupName="Nav" Style="{StaticResource SidebarItemStyle}" Checked="ZeigeEinstellungen_Click">
+                        <TextBlock x:Name="NavEinstellungenText" />
+                    </RadioButton>
+                </StackPanel>
+            </ScrollViewer>
 
             <!-- === Inhalt des gewählten Moduls === -->
             <ContentControl x:Name="InhaltBereich" Grid.Column="1" Margin="16" />

@@ -2,42 +2,55 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <DockPanel>
-        <TextBlock x:Name="TitelText" DockPanel.Dock="Top" FontSize="20" FontWeight="Bold" FontFamily="{StaticResource DisplayFontFamily}" Margin="0,0,0,4" />
-        <TextBlock x:Name="QuelleHinweis" DockPanel.Dock="Top" Style="{StaticResource QuelleHinweisStyle}" />
-        <TextBlock x:Name="EinleitungText" DockPanel.Dock="Top" Foreground="{StaticResource TextMutedBrush}" FontSize="12" Margin="0,0,0,14"
-                   TextWrapping="Wrap" />
-
         <Button x:Name="NeuLadenButton" DockPanel.Dock="Bottom" Click="NeuLaden_Click" Padding="12,6"
                 HorizontalAlignment="Left" Margin="0,10,0,0" />
 
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <ItemsControl x:Name="Liste">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Background="{StaticResource BgCardBrush}" CornerRadius="8"
-                                Padding="14,12" Margin="0,0,0,10">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="🖨️" FontSize="20" Margin="0,0,8,0" />
-                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="15" VerticalAlignment="Center" />
-                                    <TextBlock Text="★ Standard" Margin="10,0,0,0" FontSize="11" VerticalAlignment="Center"
-                                               Foreground="{StaticResource AccentBrush}" Visibility="{Binding StandardSichtbar}" />
-                                </StackPanel>
+        <ScrollViewer x:Name="HauptScroll" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock x:Name="TitelText" FontSize="20" FontWeight="Bold" FontFamily="{StaticResource DisplayFontFamily}" Margin="0,0,0,4" />
+                <TextBlock x:Name="QuelleHinweis" Style="{StaticResource QuelleHinweisStyle}" />
+                <TextBlock x:Name="EinleitungText" Foreground="{StaticResource TextMutedBrush}" FontSize="12" Margin="0,0,0,14"
+                           TextWrapping="Wrap" />
 
-                                <StackPanel Orientation="Horizontal" Margin="0,6,0,4">
-                                    <ContentControl Content="{Binding Symbol, Converter={StaticResource AmpelGlyphConverter}, ConverterParameter=15}"
-                                                    VerticalAlignment="Center" Margin="0,0,8,0" />
-                                    <TextBlock Text="{Binding BefundText}" Foreground="{Binding AmpelFarbe}"
-                                               FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                </StackPanel>
+                <Border Background="{StaticResource BgCardBrush}" CornerRadius="8" Padding="14" Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock x:Name="WarteschlangeTitel" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <TextBlock x:Name="WarteschlangeText" TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,10" />
+                        <Button x:Name="WarteschlangeLeerenButton" Click="WarteschlangeLeeren_Click" Padding="12,6" HorizontalAlignment="Left" />
+                        <TextBlock x:Name="WarteschlangeStatusText" FontSize="13" FontWeight="SemiBold" Margin="0,8,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
 
-                                <TextBlock Text="{Binding DetailZeile}" FontSize="11" TextWrapping="Wrap"
-                                           Foreground="{StaticResource TextMutedBrush}" />
-                            </StackPanel>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+                <StackPanel x:Name="ProZusatzBereich" />
+
+                <ItemsControl x:Name="Liste">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{StaticResource BgCardBrush}" CornerRadius="8"
+                                    Padding="14,12" Margin="0,0,0,10">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="🖨️" FontSize="20" Margin="0,0,8,0" />
+                                        <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="15" VerticalAlignment="Center" />
+                                        <TextBlock Text="★ Standard" Margin="10,0,0,0" FontSize="11" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource AccentBrush}" Visibility="{Binding StandardSichtbar}" />
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,4">
+                                        <ContentControl Content="{Binding Symbol, Converter={StaticResource AmpelGlyphConverter}, ConverterParameter=15}"
+                                                        VerticalAlignment="Center" Margin="0,0,8,0" />
+                                        <TextBlock Text="{Binding BefundText}" Foreground="{Binding AmpelFarbe}"
+                                                   FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                    </StackPanel>
+
+                                    <TextBlock Text="{Binding DetailZeile}" FontSize="11" TextWrapping="Wrap"
+                                               Foreground="{StaticResource TextMutedBrush}" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
         </ScrollViewer>
     </DockPanel>
 </UserControl>

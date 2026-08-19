@@ -167,6 +167,19 @@ public class DatentraegerTests
 
         Assert.Contains("-NoProfile", argumente);
         Assert.Contains("-NonInteractive", argumente);
-        Assert.Contains("\"Get-Volume\"", argumente);
+        Assert.Contains("Get-Volume", argumente);
+    }
+
+    [Fact]
+    public void AlsArgumente_FehlerInDerPipelineFuehrtZuExit1()
+    {
+        // Kein Stilmittel: PowerShell.exe gibt bei einem Cmdlet-Fehler in einer Pipeline
+        // sonst trotzdem Exit-Code 0 zurueck (s. Kommentar an AlsArgumente) - das try/catch
+        // mit explizitem "exit 1" ist die Korrektur dafuer.
+        var argumente = DatentraegerBefehle.AlsArgumente("Get-Volume");
+
+        Assert.Contains("$ErrorActionPreference = 'Stop'", argumente);
+        Assert.Contains("try {", argumente);
+        Assert.Contains("exit 1", argumente);
     }
 }

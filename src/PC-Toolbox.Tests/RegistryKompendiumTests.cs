@@ -68,4 +68,30 @@ public class RegistryKompendiumTests
         var befund = RegistryKompendium.DeuteWert("dateiendungen", "ein Text statt einer Zahl");
         Assert.Equal(AmpelStatus.Unbekannt, befund.Status);
     }
+
+    [Fact]
+    public void EmpfehlungFuer_OhneEmpfehlungDefiniertLiefertNull()
+    {
+        Assert.Null(RegistryKompendium.EmpfehlungFuer("versteckte-dateien"));
+        Assert.Null(RegistryKompendium.EmpfehlungFuer("windows-info"));
+        Assert.Null(RegistryKompendium.EmpfehlungFuer("gibt-es-nicht"));
+    }
+
+    [Theory]
+    [InlineData("dateiendungen")]
+    [InlineData("uac-stufe")]
+    [InlineData("autologon")]
+    [InlineData("remotedesktop")]
+    [InlineData("autorun")]
+    public void EmpfehlungFuer_EigenerWertWirdVonDeuteWertSelbstAlsGruenBewertet(string id)
+    {
+        // Die wichtigste Konsistenzregel für die Reset-Aktion: was hier empfohlen wird, muss
+        // DeuteWert (dieselbe Datei, unabhängig gepflegt) auch tatsächlich als grün einstufen -
+        // sonst würde "Zurücksetzen" auf einen Wert setzen, den das Modul selbst noch bemängelt.
+        var empfehlung = RegistryKompendium.EmpfehlungFuer(id);
+        Assert.NotNull(empfehlung);
+
+        var befund = RegistryKompendium.DeuteWert(id, empfehlung!.Wert);
+        Assert.Equal(AmpelStatus.Gruen, befund.Status);
+    }
 }

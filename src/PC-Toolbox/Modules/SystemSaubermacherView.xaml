@@ -6,6 +6,10 @@
         <TextBlock x:Name="EinleitungText" DockPanel.Dock="Top" Foreground="#666" Margin="0,0,0,10" TextWrapping="Wrap" />
         <TextBlock x:Name="QuelleHinweis" DockPanel.Dock="Top" Style="{StaticResource QuelleHinweisStyle}" />
 
+        <!-- Nur im Pro-Build befuellt: Wiederherstellungspunkte-Aufraeumen
+             (s. WiederherstellungspunkteService) -->
+        <StackPanel x:Name="ProZusatzBereich" DockPanel.Dock="Top" Margin="0,0,0,10" />
+
         <TextBlock x:Name="StatusZeile" DockPanel.Dock="Bottom" Margin="0,6,0,0" FontStyle="Italic" />
 
         <ScrollViewer VerticalScrollBarVisibility="Auto">

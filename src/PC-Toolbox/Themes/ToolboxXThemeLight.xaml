@@ -123,6 +123,86 @@
         <Setter Property="Background" Value="Transparent" />
     </Style>
 
+    <!-- === Fortschrittsbalken (z.B. CPU/RAM/Disk-Live-Monitor) ===
+         Gleicher Grund wie im dunklen Theme: ohne eigenen Style faellt
+         ProgressBar auf sein System-Standard-Chrome zurueck statt sich
+         ins Theme einzufuegen. PART_Track/PART_Indicator sind die von
+         ProgressBar selbst erwarteten Namen: die Klasse setzt die Breite
+         von PART_Indicator proportional zum Wert automatisch. -->
+    <Style TargetType="ProgressBar">
+        <Setter Property="Background" Value="{StaticResource BgCardBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush1}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ProgressBar">
+                    <Border x:Name="PART_Track" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="5" ClipToBounds="True">
+                        <Border x:Name="PART_Indicator" Background="{TemplateBinding Foreground}"
+                                CornerRadius="5" HorizontalAlignment="Left" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- === Schieberegler (z.B. Tage-Auswahl im Windows-Update-Profil) ===
+         Gleicher Grund wie im dunklen Theme: der WPF-Standard-Slider bringt sein
+         eigenes System-Chrome mit statt sich ins Theme einzufuegen. -->
+    <Style TargetType="Slider">
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Slider">
+                    <Grid>
+                        <Border Height="6" Background="{StaticResource BgCardBrush}"
+                                BorderBrush="{StaticResource BorderBrush1}" BorderThickness="1"
+                                CornerRadius="3" VerticalAlignment="Center" />
+                        <Track x:Name="PART_Track">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="Slider.DecreaseLarge" Background="Transparent" BorderThickness="0">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Height="6" Background="{StaticResource AccentBrush}"
+                                                    CornerRadius="3" VerticalAlignment="Center" />
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.DecreaseRepeatButton>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="Slider.IncreaseLarge" Background="Transparent" BorderThickness="0" Opacity="0" />
+                            </Track.IncreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Width="16" Height="16" Cursor="Hand">
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Ellipse Fill="{StaticResource AccentBrush}"
+                                                     Stroke="{StaticResource BgPanelBrush}" StrokeThickness="2" />
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Sprungmarken zwischen Modulen - s. Kommentar in ToolboxXTheme.xaml (Dunkel-Theme). -->
+    <Style TargetType="Hyperlink">
+        <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+        <Setter Property="TextDecorations" Value="Underline" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Foreground" Value="{StaticResource AccentDimBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- === Standard-Button (im Inhaltsbereich, z.B. "Scannen") === -->
     <Style TargetType="Button">
         <Setter Property="Background" Value="{StaticResource BgCardBrush}" />
@@ -232,6 +312,64 @@
                             </Trigger.ExitActions>
                         </Trigger>
                     </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- === Sidebar-Abschnittsüberschrift (rein optische Gruppierung, nicht klickbar) === -->
+    <Style x:Key="SidebarHeaderStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Opacity" Value="0.7" />
+        <Setter Property="Margin" Value="18,14,10,4" />
+    </Style>
+
+    <!-- === TabControl/TabItem (bisher ungestyled - Windows-Standardoptik hell/unlesbar gegen
+         das dunkle Theme, live gemeldet). Schlichte Unterstrich-Tabs statt klassischer
+         Ordnerreiter-Chrome, passend zur restlichen flachen Optik. === -->
+    <Style x:Key="{x:Type TabItem}" TargetType="TabItem">
+        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource BodyFontFamily}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabItem">
+                    <Border x:Name="Bd" Padding="14,8" Margin="0,0,4,0" BorderThickness="0,0,0,2" BorderBrush="Transparent">
+                        <ContentPresenter ContentSource="Header" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="{x:Type TabControl}" TargetType="TabControl">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Top" BorderBrush="{StaticResource BorderBrush1}" BorderThickness="0,0,0,1">
+                            <TabPanel IsItemsHost="True" />
+                        </Border>
+                        <Border Background="{StaticResource BgDeepBrush}">
+                            <ContentPresenter ContentSource="SelectedContent" />
+                        </Border>
+                    </DockPanel>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

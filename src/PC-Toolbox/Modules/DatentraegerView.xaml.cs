@@ -1,10 +1,16 @@
 using System.Globalization;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using PCToolbox.Services;
 using PCToolboxCore;
 using PCToolboxCore.Models;
+#if PRO_BUILD
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
+using PCToolbox.Services.Pro;
+#endif
 
 namespace PCToolbox.Modules;
 
@@ -14,9 +20,31 @@ public partial class DatentraegerView : UserControl
     private readonly LaufwerksbuchstabenKonfliktService _konfliktDienst = new();
     private List<DatentraegerVolume> _volumes = [];
 
+#if PRO_BUILD
+    private readonly DatentraegerStufe2Service _stufe2Dienst = new();
+    private IReadOnlyList<DiskStufe2Info> _disks = [];
+    private IReadOnlyList<DiskPartitionInfo> _partitionen = [];
+    private DiskStufe2Info? _gewaehlteDisk;
+    private HashSet<char> _geisterBuchstabenStufe2 = [];
+
+    private ComboBox _diskAuswahl = null!;
+    private TextBlock _diskInfoText = null!;
+    private TextBox _neueGroesseFeld = null!;
+    private CheckBox _maximaleGroesseBox = null!;
+    private ComboBox _neuerBuchstabeBox = null!;
+    private ComboBox _neuesDateisystemBox = null!;
+    private TextBox _neueBezeichnungFeld = null!;
+    private TextBlock _stufe2StatusText = null!;
+    private ItemsControl _partitionenListe = null!;
+#endif
+
     public DatentraegerView()
     {
         InitializeComponent();
+
+#if PRO_BUILD
+        Stufe2BereichAufbauen();
+#endif
 
         TitelText.Text = Loc.T("Datenträger", "Drives");
         QuelleHinweis.ToolTip = Loc.T(
@@ -47,6 +75,9 @@ public partial class DatentraegerView : UserControl
 
         Loaded += async (_, _) => await LadenAsync();
         Loaded += async (_, _) => await GeisterBuchstabenLadenAsync();
+#if PRO_BUILD
+        Loaded += async (_, _) => await Stufe2LadenAsync();
+#endif
     }
 
     private async Task GeisterBuchstabenLadenAsync()
@@ -327,4 +358,407 @@ public partial class DatentraegerView : UserControl
         MeldungText.Text = "";
         await LadenAsync();
     }
+
+#if PRO_BUILD
+    /// <summary>
+    /// Baut den Stufe-2-Bereich (Partitionen erstellen/löschen) zur Laufzeit in
+    /// ProZusatzBereich ein, statt ihn fest in DatentraegerView.xaml zu verdrahten - so
+    /// bleibt die XAML-Datei fuer Free/Pro identisch, genau wie bei USB-Geräte/Netzwerk.
+    /// </summary>
+    private void Stufe2BereichAufbauen()
+    {
+        var expander = new Expander
+        {
+            Header = Loc.T("Partitionen verwalten (Pro)", "Manage partitions (Pro)")
+        };
+
+        var inhalt = new StackPanel { Margin = new Thickness(0, 10, 0, 0) };
+
+        inhalt.Children.Add(new TextBlock
+        {
+            Text = Loc.T(
+                "Partitionen erstellen oder löschen - riskanter als oben, weil hier die Partitionstabelle " +
+                "einer ganzen Platte verändert wird, nicht nur eine schon bestehende Partition angepasst " +
+                "wird. Das Systemlaufwerk und alle seine Partitionen (auch versteckte wie EFI/" +
+                "Wiederherstellung) sind komplett gesperrt.",
+                "Create or delete partitions - riskier than above, because this changes an entire disk's " +
+                "partition table instead of just adjusting an existing partition. The system disk and all " +
+                "its partitions (including hidden ones like EFI/recovery) are completely locked."),
+            Foreground = (Brush)FindResource("TextMutedBrush"),
+            FontSize = 12,
+            Margin = new Thickness(0, 0, 0, 12),
+            TextWrapping = TextWrapping.Wrap
+        });
+
+        inhalt.Children.Add(new TextBlock
+        {
+            Text = Loc.T("PLATTE", "DISK"), FontSize = 12, FontWeight = FontWeights.SemiBold,
+            Foreground = (Brush)FindResource("TextMutedBrush"), Margin = new Thickness(0, 0, 0, 6)
+        });
+
+        _diskAuswahl = new ComboBox { Width = 460, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 0, 0, 6) };
+        _diskAuswahl.SelectionChanged += DiskAuswahl_Gewechselt;
+        inhalt.Children.Add(_diskAuswahl);
+
+        _diskInfoText = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, Margin = new Thickness(0, 0, 0, 18),
+            Foreground = (Brush)FindResource("TextMutedBrush")
+        };
+        inhalt.Children.Add(_diskInfoText);
+
+        inhalt.Children.Add(new TextBlock
+        {
+            Text = Loc.T("Neue Partition im unallokierten Platz", "New partition in unallocated space"),
+            FontSize = 15, FontWeight = FontWeights.Bold, Margin = new Thickness(0, 0, 0, 8)
+        });
+
+        var neueZeile1 = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
+        _neueGroesseFeld = new TextBox { Width = 90, Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 0, 8, 0) };
+        neueZeile1.Children.Add(_neueGroesseFeld);
+        neueZeile1.Children.Add(new TextBlock { Text = "GB", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0) });
+        _neuerBuchstabeBox = new ComboBox { Width = 70, Margin = new Thickness(0, 0, 16, 0) };
+        neueZeile1.Children.Add(_neuerBuchstabeBox);
+        _neuesDateisystemBox = new ComboBox { Width = 100 };
+        foreach (var fs in DateisystemRegeln.Alle) _neuesDateisystemBox.Items.Add(fs);
+        if (_neuesDateisystemBox.Items.Count > 0) _neuesDateisystemBox.SelectedIndex = 0;
+        neueZeile1.Children.Add(_neuesDateisystemBox);
+        inhalt.Children.Add(neueZeile1);
+
+        _maximaleGroesseBox = new CheckBox
+        {
+            Content = Loc.T("Gesamten unallokierten Platz verwenden (empfohlen statt Größe eintippen)",
+                             "Use all unallocated space (recommended instead of typing a size)"),
+            IsChecked = true,
+            FontSize = 12,
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+        _maximaleGroesseBox.Checked += (_, _) => _neueGroesseFeld.IsEnabled = false;
+        _maximaleGroesseBox.Unchecked += (_, _) => _neueGroesseFeld.IsEnabled = true;
+        _neueGroesseFeld.IsEnabled = false;
+        inhalt.Children.Add(_maximaleGroesseBox);
+
+        var neueZeile2 = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 10) };
+        _neueBezeichnungFeld = new TextBox
+        {
+            Width = 220, Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 0, 10, 0),
+            Text = Loc.T("Neue Partition", "New partition")
+        };
+        neueZeile2.Children.Add(_neueBezeichnungFeld);
+        var erstellenButton = new Button { Content = Loc.T("Partition erstellen", "Create partition"), Padding = new Thickness(12, 6, 12, 6) };
+        erstellenButton.Click += PartitionErstellen_Click;
+        neueZeile2.Children.Add(erstellenButton);
+        inhalt.Children.Add(neueZeile2);
+
+        inhalt.Children.Add(new TextBlock
+        {
+            Text = Loc.T("Partitionen auf dieser Platte", "Partitions on this disk"),
+            FontSize = 15, FontWeight = FontWeights.Bold, Margin = new Thickness(0, 16, 0, 8)
+        });
+
+        _partitionenListe = new ItemsControl();
+        var zeileFactory = new FrameworkElementFactory(typeof(Border));
+        zeileFactory.SetValue(Border.BackgroundProperty, (Brush)FindResource("BgCardBrush"));
+        zeileFactory.SetValue(Border.CornerRadiusProperty, new CornerRadius(6));
+        zeileFactory.SetValue(Border.PaddingProperty, new Thickness(12, 8, 12, 8));
+        zeileFactory.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 0, 0, 6));
+
+        var innenFactory = new FrameworkElementFactory(typeof(DockPanel));
+
+        var loeschenButtonFactory = new FrameworkElementFactory(typeof(Button));
+        loeschenButtonFactory.SetValue(DockPanel.DockProperty, Dock.Right);
+        loeschenButtonFactory.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Top);
+        loeschenButtonFactory.SetBinding(ContentControl.ContentProperty, new Binding("LoeschenText"));
+        loeschenButtonFactory.SetBinding(UIElement.IsEnabledProperty, new Binding("KannLoeschen"));
+        loeschenButtonFactory.SetValue(Button.PaddingProperty, new Thickness(10, 4, 10, 4));
+        loeschenButtonFactory.AddHandler(ButtonBase.ClickEvent, (RoutedEventHandler)PartitionLoeschen_Click);
+        innenFactory.AppendChild(loeschenButtonFactory);
+
+        var textStackFactory = new FrameworkElementFactory(typeof(StackPanel));
+        var titelFactory = new FrameworkElementFactory(typeof(TextBlock));
+        titelFactory.SetBinding(TextBlock.TextProperty, new Binding("Anzeige"));
+        titelFactory.SetValue(TextBlock.FontWeightProperty, FontWeights.SemiBold);
+        textStackFactory.AppendChild(titelFactory);
+
+        var begruendungFactory = new FrameworkElementFactory(typeof(TextBlock));
+        begruendungFactory.SetBinding(TextBlock.TextProperty, new Binding("Begruendung"));
+        begruendungFactory.SetValue(TextBlock.FontSizeProperty, 11.0);
+        begruendungFactory.SetValue(TextBlock.ForegroundProperty, (Brush)FindResource("TextMutedBrush"));
+        begruendungFactory.SetValue(TextBlock.TextWrappingProperty, TextWrapping.Wrap);
+        begruendungFactory.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 2, 0, 0));
+        textStackFactory.AppendChild(begruendungFactory);
+
+        innenFactory.AppendChild(textStackFactory);
+        zeileFactory.AppendChild(innenFactory);
+        _partitionenListe.ItemTemplate = new DataTemplate { VisualTree = zeileFactory };
+        inhalt.Children.Add(_partitionenListe);
+
+        _stufe2StatusText = new TextBlock { FontSize = 12, Margin = new Thickness(0, 12, 0, 0), TextWrapping = TextWrapping.Wrap };
+        inhalt.Children.Add(_stufe2StatusText);
+
+        var neuLadenStufe2Button = new Button
+        {
+            Content = Loc.T("Neu einlesen", "Reload"), Padding = new Thickness(12, 6, 12, 6),
+            Margin = new Thickness(0, 8, 0, 0), HorizontalAlignment = HorizontalAlignment.Left
+        };
+        neuLadenStufe2Button.Click += async (_, _) => await Stufe2LadenAsync();
+        inhalt.Children.Add(neuLadenStufe2Button);
+
+        expander.Content = inhalt;
+        ProZusatzBereich.Children.Add(expander);
+    }
+
+    private async Task Stufe2LadenAsync()
+    {
+        _stufe2StatusText.Text = Loc.T("Lese Platten und Partitionen ein …", "Reading disks and partitions…");
+
+        var (disks, partitionen) = await _stufe2Dienst.LadenAsync();
+        _disks = disks;
+        _partitionen = partitionen;
+
+        // Geister-Buchstaben (reserviert, aber kein aktives Laufwerk - z.B. ein getrennt
+        // gemountetes Cloud-Laufwerk wie Google Drive) muessen bei der Buchstaben-Auswahl
+        // fuer eine neue Partition ausgeschlossen werden, sonst schlaegt New-Partition mit
+        // "Pfad wird bereits verwendet" fehl (genau so beim ersten echten Test passiert).
+        _geisterBuchstabenStufe2 = (await _konfliktDienst.GeisterBuchstabenAsync()).ToHashSet();
+
+        var vorherIndex = _diskAuswahl.SelectedIndex;
+        _diskAuswahl.Items.Clear();
+        foreach (var d in _disks)
+            _diskAuswahl.Items.Add(Loc.T(
+                $"Platte {d.Nummer}: {d.Name}  ·  {d.GroesseBytes / (double)DateisystemRegeln.Gigabyte:0.#} GB gesamt, " +
+                $"{d.UnallokiertBytes / (double)DateisystemRegeln.Gigabyte:0.#} GB unallokiert  ·  " +
+                LaufwerksbuchstabenProPlatte.Anzeige(d.Laufwerksbuchstaben),
+                $"Disk {d.Nummer}: {d.Name}  ·  {d.GroesseBytes / (double)DateisystemRegeln.Gigabyte:0.#} GB total, " +
+                $"{d.UnallokiertBytes / (double)DateisystemRegeln.Gigabyte:0.#} GB unallocated  ·  " +
+                LaufwerksbuchstabenProPlatte.Anzeige(d.Laufwerksbuchstaben)));
+
+        if (_disks.Count > 0)
+            _diskAuswahl.SelectedIndex = vorherIndex >= 0 && vorherIndex < _disks.Count ? vorherIndex : 0;
+
+        _stufe2StatusText.Text = Loc.T(
+            $"{_disks.Count} Platte(n), {_partitionen.Count} Partition(en) gefunden.",
+            $"{_disks.Count} disk(s), {_partitionen.Count} partition(s) found.");
+    }
+
+    private void DiskAuswahl_Gewechselt(object sender, SelectionChangedEventArgs e)
+    {
+        if (_diskAuswahl.SelectedIndex < 0 || _diskAuswahl.SelectedIndex >= _disks.Count)
+        {
+            _gewaehlteDisk = null;
+            _partitionenListe.ItemsSource = null;
+            return;
+        }
+
+        var disk = _disks[_diskAuswahl.SelectedIndex];
+        _gewaehlteDisk = disk;
+
+        var systemHinweis = disk.IstBoot || disk.IstSystem
+            ? Loc.T(" Systemplatte - Partitionen hier lassen sich nicht löschen.",
+                    " System disk - partitions here cannot be deleted.")
+            : "";
+        _diskInfoText.Text = Loc.T(
+            $"{disk.UnallokiertBytes / (double)DateisystemRegeln.Gigabyte:0.#} GB unallokiert ({disk.Partitionsstil}).{systemHinweis}",
+            $"{disk.UnallokiertBytes / (double)DateisystemRegeln.Gigabyte:0.#} GB unallocated ({disk.Partitionsstil}).{systemHinweis}");
+
+        // DriveInfo.GetDrives() statt nur der eigenen Listen: liefert JEDEN zur Zeit
+        // zugewiesenen Buchstaben, auch kaputte/leere Volume-Reste ohne echtes Dateisystem
+        // dahinter (IsReady=false) - genau die Art "Geister im laufenden Betrieb", die weder
+        // in den eigenen Partitionslisten noch in der Registry-basierten Geister-Erkennung
+        // auftaucht, aber New-Partition trotzdem mit "Pfad wird bereits verwendet" blockiert.
+        var systemweitVergeben = DriveInfo.GetDrives().Select(d => d.Name[0]).ToHashSet();
+
+        var belegteBuchstaben = _partitionen
+            .Select(p => p.Buchstabe)
+            .Concat(_volumes.Select(v => (char?)v.Buchstabe))
+            .Where(b => b.HasValue)
+            .Select(b => b!.Value)
+            .Concat(_geisterBuchstabenStufe2)
+            .Concat(systemweitVergeben)
+            .ToHashSet();
+
+        _neuerBuchstabeBox.Items.Clear();
+        foreach (var b in "DEFGHIJKLMNOPQRSTUVWXYZ".Where(b => !belegteBuchstaben.Contains(b)))
+            _neuerBuchstabeBox.Items.Add($"{b}:");
+        if (_neuerBuchstabeBox.Items.Count > 0) _neuerBuchstabeBox.SelectedIndex = 0;
+
+        PartitionenListeAktualisieren();
+    }
+
+    private void PartitionenListeAktualisieren()
+    {
+        if (_gewaehlteDisk is not { } disk)
+        {
+            _partitionenListe.ItemsSource = null;
+            return;
+        }
+
+        _partitionenListe.ItemsSource = _partitionen
+            .Where(p => p.DiskNummer == disk.Nummer)
+            .Select(p =>
+            {
+                var schutz = DatentraegerStufe2Schutz.DarfPartitionLoeschen(p, disk);
+                return new PartitionZeile
+                {
+                    Partition = p,
+                    Anzeige = Loc.T(
+                        $"Partition {p.PartitionNummer}{(p.Buchstabe is { } b ? $"  ({b}:)" : "")}  ·  " +
+                        $"{p.GroesseBytes / (double)DateisystemRegeln.Gigabyte:0.#} GB  ·  {p.Typ}",
+                        $"Partition {p.PartitionNummer}{(p.Buchstabe is { } b2 ? $"  ({b2}:)" : "")}  ·  " +
+                        $"{p.GroesseBytes / (double)DateisystemRegeln.Gigabyte:0.#} GB  ·  {p.Typ}"),
+                    Begruendung = schutz.Begruendung,
+                    KannLoeschen = schutz.Erlaubt,
+                    LoeschenText = Loc.T("Löschen", "Delete")
+                };
+            })
+            .ToList();
+    }
+
+    private async void PartitionErstellen_Click(object sender, RoutedEventArgs e)
+    {
+        if (_gewaehlteDisk is not { } disk) return;
+        if (_neuerBuchstabeBox.SelectedItem is not string buchstabeText || _neuesDateisystemBox.SelectedItem is not string dateisystem)
+        {
+            _stufe2StatusText.Text = Loc.T("Bitte Laufwerksbuchstabe und Dateisystem wählen.", "Please choose a drive letter and file system.");
+            return;
+        }
+
+        long? groesseBytes;
+        string groesseAnzeige;
+
+        if (_maximaleGroesseBox.IsChecked == true)
+        {
+            groesseBytes = null;
+            groesseAnzeige = Loc.T($"gesamten unallokierten Platz ({disk.UnallokiertBytes / (double)DateisystemRegeln.Gigabyte:0.#} GB)",
+                                   $"all unallocated space ({disk.UnallokiertBytes / (double)DateisystemRegeln.Gigabyte:0.#} GB)");
+        }
+        else
+        {
+            if (!double.TryParse(_neueGroesseFeld.Text.Trim().Replace('.', ','), NumberStyles.Any,
+                    CultureInfo.CurrentCulture, out var gb) || gb <= 0)
+            {
+                _stufe2StatusText.Text = Loc.T("Bitte eine Größe in GB eingeben, zum Beispiel 50.", "Please enter a size in GB, for example 50.");
+                return;
+            }
+
+            groesseBytes = (long)(gb * DateisystemRegeln.Gigabyte);
+            groesseAnzeige = $"{gb:0.#} GB";
+        }
+
+        var buchstabe = buchstabeText[0];
+
+        var antwort = MessageBox.Show(
+            Loc.T(
+                $"Neue Partition ({groesseAnzeige}) auf {disk.Name} erstellen, formatiert mit {dateisystem}, erreichbar unter {buchstabe}:?",
+                $"Create a new partition ({groesseAnzeige}) on {disk.Name}, formatted with {dateisystem}, accessible at {buchstabe}:?"),
+            Loc.T("Partition erstellen", "Create partition"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+        if (antwort != MessageBoxResult.Yes) return;
+
+        _stufe2StatusText.Text = Loc.T("Erstelle Partition (Windows fragt nach Bestätigung) …", "Creating partition (Windows will ask for confirmation)…");
+
+        var (erfolg, meldung) = await _stufe2Dienst.PartitionErstellenAsync(
+            disk, groesseBytes, buchstabe, dateisystem, _neueBezeichnungFeld.Text.Trim());
+        _stufe2StatusText.Text = meldung;
+
+        // Eine neue Partition aendert die Laufwerksbuchstaben-Liste oben ("Laufwerke zum
+        // Formatieren") - die muss mit aktualisiert werden, sonst zeigt sie den alten Stand,
+        // bis man dort manuell auf "Neu einlesen" klickt (genau so live entdeckt).
+        if (erfolg)
+        {
+            await Stufe2LadenAsync();
+            await LadenAsync();
+        }
+    }
+
+    private async void PartitionLoeschen_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: PartitionZeile zeile } || _gewaehlteDisk is not { } disk) return;
+
+        var partition = zeile.Partition;
+        var bezeichnung = partition.Buchstabe is { } b
+            ? $"{b}:"
+            : Loc.T($"Partition {partition.PartitionNummer}", $"partition {partition.PartitionNummer}");
+
+        var antwort = MessageBox.Show(
+            Loc.T(
+                $"{bezeichnung} auf {disk.Name} wirklich löschen?\n\nALLE Daten darauf sind danach unwiderruflich weg. " +
+                "Der Platz wird unallokiert, nicht automatisch einem Nachbarlaufwerk zugeschlagen.",
+                $"Really delete {bezeichnung} on {disk.Name}?\n\nALL data on it will be irrevocably gone afterward. " +
+                "The space becomes unallocated, not automatically added to a neighboring drive."),
+            Loc.T("Partition löschen", "Delete partition"), MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        if (antwort != MessageBoxResult.Yes) return;
+
+        if (!BestaetigungswortAbfragen(
+                Loc.T("Zum endgültigen Bestätigen bitte LÖSCHEN eintippen (Groß-/Kleinschreibung egal):",
+                      "To finally confirm, please type DELETE (case doesn't matter):"),
+                Loc.T("LÖSCHEN", "DELETE")))
+        {
+            _stufe2StatusText.Text = Loc.T("Abgebrochen. Es wurde nichts verändert.", "Cancelled. Nothing was changed.");
+            return;
+        }
+
+        _stufe2StatusText.Text = Loc.T("Lösche Partition (Windows fragt nach Bestätigung) …", "Deleting partition (Windows will ask for confirmation)…");
+
+        var (erfolg, meldung) = await _stufe2Dienst.PartitionLoeschenAsync(partition, disk);
+        _stufe2StatusText.Text = meldung;
+
+        if (erfolg)
+        {
+            await Stufe2LadenAsync();
+            await LadenAsync();
+        }
+    }
+
+    /// <summary>
+    /// Kleiner eigener Bestätigungsdialog mit Abtipp-Zwang - wie bei Formatieren in Stufe 1
+    /// (dort die Laufwerksbezeichnung), hier zusätzlich zur normalen Ja/Nein-Nachfrage, weil
+    /// eine Partition löschen genauso endgültig ist wie Formatieren.
+    /// </summary>
+    private bool BestaetigungswortAbfragen(string erklaerung, string erwartetesWort)
+    {
+        var fenster = new Window
+        {
+            Title = Loc.T("Bestätigung erforderlich", "Confirmation required"),
+            Width = 420,
+            SizeToContent = SizeToContent.Height,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = Window.GetWindow(this),
+            ResizeMode = ResizeMode.NoResize,
+            Background = (Brush)FindResource("BgPanelBrush")
+        };
+
+        var stack = new StackPanel { Margin = new Thickness(20) };
+        stack.Children.Add(new TextBlock { Text = erklaerung, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 12) });
+
+        var eingabe = new TextBox { Padding = new Thickness(6, 4, 6, 4), Margin = new Thickness(0, 0, 0, 16) };
+        stack.Children.Add(eingabe);
+
+        var bestaetigt = false;
+        var knopfZeile = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        var abbrechenButton = new Button { Content = Loc.T("Abbrechen", "Cancel"), Padding = new Thickness(12, 6, 12, 6), Margin = new Thickness(0, 0, 8, 0) };
+        abbrechenButton.Click += (_, _) => fenster.Close();
+        var okButton = new Button { Content = Loc.T("Bestätigen", "Confirm"), Padding = new Thickness(12, 6, 12, 6), IsEnabled = false };
+        okButton.Click += (_, _) => { bestaetigt = true; fenster.Close(); };
+        eingabe.TextChanged += (_, _) => okButton.IsEnabled = string.Equals(eingabe.Text.Trim(), erwartetesWort, StringComparison.OrdinalIgnoreCase);
+        knopfZeile.Children.Add(abbrechenButton);
+        knopfZeile.Children.Add(okButton);
+        stack.Children.Add(knopfZeile);
+
+        fenster.Content = stack;
+        fenster.ShowDialog();
+
+        return bestaetigt;
+    }
+#endif
 }
+
+#if PRO_BUILD
+public class PartitionZeile
+{
+    public DiskPartitionInfo Partition { get; set; } = null!;
+    public string Anzeige { get; set; } = "";
+    public string Begruendung { get; set; } = "";
+    public bool KannLoeschen { get; set; }
+    public string LoeschenText { get; set; } = "";
+}
+#endif

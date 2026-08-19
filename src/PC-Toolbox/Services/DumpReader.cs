@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.Eventing.Reader;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -84,8 +85,8 @@ public class DumpReader
                     Zeitpunkt = DateTime.Now,
                     BugCheckCode = "-",
                     BugCheckName = Loc.T("Event-Log nicht lesbar", "Event log not readable"),
-                    Loesungsvorschlag = Loc.T($"Fehler: {ex.Message} → Als Administrator starten, oder Minidump-Ordner direkt prüfen.",
-                                              $"Error: {ex.Message} → Start as administrator, or check the minidump folder directly."),
+                    Loesungsvorschlag = Loc.T($"Fehler: {ex.Message}",
+                                              $"Error: {ex.Message}"),
                     Quelle = Loc.T("Fehler", "Error")
                 });
             }
@@ -119,15 +120,20 @@ public class DumpReader
                 }
                 catch (UnauthorizedAccessException)
                 {
+                    // ABSICHTLICH kein "Starte PC-Toolbox als Administrator" mehr: das wuerde die
+                    // GANZE App elevieren, inkl. aller destruktiven Module - fuer Free-Nutzer ein
+                    // viel zu grosser, unerklaerter Hebel. Stattdessen zeigt die UI einen Button fuer
+                    // GENAU diese eine, erklaerte Aktion (s. BluescreenView.MinidumpsMitErhoehtenRechtenLaden).
                     ergebnisse.Add(new BluescreenEntry
                     {
                         Zeitpunkt = DateTime.Now,
                         BugCheckCode = "-",
                         BugCheckName = Loc.T("Minidump-Ordner nicht lesbar", "Minidump folder not readable"),
                         Loesungsvorschlag = Loc.T(
-                            "Zugriff auf C:\\Windows\\Minidump verweigert → PC-Toolbox als Administrator starten, um Minidump-Dateien zu sehen.",
-                            "Access to C:\\Windows\\Minidump denied → start PC-Toolbox as administrator to see minidump files."),
-                        Quelle = Loc.T("Fehler", "Error")
+                            "Windows lässt normale Nutzer nicht in diesen Ordner schauen - nur Administratoren.",
+                            "Windows doesn't let normal users look into this folder - only administrators."),
+                        Quelle = Loc.T("Zugriff verweigert", "Access denied"),
+                        BrauchtErhoehteRechte = true,
                     });
                 }
                 catch (Exception ex)
@@ -146,6 +152,86 @@ public class DumpReader
             return ergebnisse;
         });
     }
+
+    // Wird NUR nach ausdruecklicher, erklaerter Zustimmung des Nutzers aufgerufen (s. BluescreenView).
+    // Elevierte genau EINE eng begrenzte, lesende Aktion (Dateiliste aus C:\Windows\Minidump), NICHT
+    // die ganze App - Ergebnis kommt ueber eine Zwischendatei zurueck, weil UseShellExecute=true
+    // (fuer den runas-Verb noetig) keine stdout-Umleitung erlaubt.
+    public async Task<List<BluescreenEntry>> MinidumpsMitErhoehtenRechtenListenAsync(int anzahl = 5)
+    {
+        return await Task.Run(() =>
+        {
+            var minidumpPfad = Path.Combine(Environment.GetEnvironmentVariable("SystemRoot") ?? @"C:\Windows", "Minidump");
+            var ausgabeDatei = Path.Combine(Path.GetTempPath(), $"pctoolbox-minidump-{Guid.NewGuid():N}.txt");
+
+            try
+            {
+                var befehl = $"Get-ChildItem -LiteralPath '{minidumpPfad}' -Filter *.dmp -ErrorAction Stop | " +
+                             $"Sort-Object LastWriteTime -Descending | Select-Object -First {anzahl} | " +
+                             "ForEach-Object { \"$($_.Name)|$($_.LastWriteTime.Ticks)\" } | " +
+                             $"Out-File -LiteralPath '{ausgabeDatei}' -Encoding utf8";
+                var psi = new ProcessStartInfo("powershell.exe",
+                    $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"{befehl.Replace("\"", "\\\"")}\"")
+                {
+                    UseShellExecute = true,
+                    Verb = "runas",
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                };
+
+                using var prozess = Process.Start(psi);
+                prozess?.WaitForExit();
+
+                if (!File.Exists(ausgabeDatei))
+                {
+                    return new List<BluescreenEntry> { NeuerFehlerEintrag(Loc.T(
+                        "Abgebrochen oder es wurden keine Minidump-Dateien gefunden.",
+                        "Cancelled, or no minidump files were found.")) };
+                }
+
+                var eintraege = new List<BluescreenEntry>();
+                foreach (var zeile in File.ReadAllLines(ausgabeDatei))
+                {
+                    var teile = zeile.Split('|', 2);
+                    if (teile.Length != 2 || !long.TryParse(teile[1], out var ticks)) continue;
+
+                    eintraege.Add(new BluescreenEntry
+                    {
+                        Zeitpunkt = new DateTime(ticks),
+                        BugCheckCode = Loc.T("unbekannt", "unknown"),
+                        BugCheckName = teile[0],
+                        Loesungsvorschlag = Loc.T(
+                            "Für den genauen Fehlercode: Datei mit WinDbg öffnen (kostenlos, Microsoft Store).",
+                            "For the exact error code: open the file with WinDbg (free, Microsoft Store)."),
+                        Quelle = Loc.T("Minidump-Datei (nur Zeitstempel, mit Administratorrechten gelesen)",
+                                        "Minidump file (timestamp only, read with administrator rights)")
+                    });
+                }
+
+                return eintraege.Count > 0
+                    ? eintraege
+                    : new List<BluescreenEntry> { NeuerFehlerEintrag(Loc.T(
+                        "Keine Minidump-Dateien gefunden.", "No minidump files found.")) };
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                return new List<BluescreenEntry> { NeuerFehlerEintrag(Loc.T(
+                    "Sicherheitsabfrage abgelehnt.", "Security prompt declined.")) };
+            }
+            finally
+            {
+                try { if (File.Exists(ausgabeDatei)) File.Delete(ausgabeDatei); }
+                catch (IOException) { /* Aufraeumen ist best effort, kein Grund das Ergebnis zu verwerfen. */ }
+            }
+        });
+    }
+
+    private static BluescreenEntry NeuerFehlerEintrag(string meldung) => new()
+    {
+        Zeitpunkt = DateTime.Now,
+        BugCheckCode = "-",
+        BugCheckName = meldung,
+        Quelle = Loc.T("Fehler", "Error"),
+    };
 
     private static BluescreenEntry? ParseEreignis(EventRecord record)
     {

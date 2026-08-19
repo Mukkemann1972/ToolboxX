@@ -102,6 +102,27 @@
                     </ItemsControl>
                 </StackPanel>
             </Expander>
+
+            <!-- Produktschluessel sichern - unabhaengig von Pruefen/Reparieren, praktisch
+                 VOR einer Neuinstallation. Free (rein lesend). -->
+            <Expander x:Name="SchluesselBereich" Margin="0,18,0,0">
+                <StackPanel Margin="0,8,0,0">
+                    <TextBlock x:Name="SchluesselErklaerung" TextWrapping="Wrap" FontSize="12"
+                               Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,10" />
+                    <Button x:Name="SchluesselLadenButton" Click="SchluesselLaden_Click"
+                            Padding="14,7" HorizontalAlignment="Left" Margin="0,0,0,10" />
+                    <TextBox x:Name="SchluesselFeld" IsReadOnly="True" Padding="8,6"
+                             FontFamily="Consolas" FontSize="14" Margin="0,0,0,10" Visibility="Collapsed" />
+                    <Button x:Name="SchluesselSpeichernButton" Click="SchluesselSpeichern_Click"
+                            Padding="14,7" HorizontalAlignment="Left" Margin="0,0,0,10" Visibility="Collapsed" />
+                    <TextBlock x:Name="SchluesselStatusText" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" />
+                </StackPanel>
+            </Expander>
+
+            <!-- Nur im Pro-Build befuellt: Komponentenspeicher-Analyse/-Bereinigung
+                 (s. KomponentenspeicherService) - gleiches Laufzeit-Platzhalter-Muster wie
+                 GpuDiagnoseView/RamDiskView. -->
+            <StackPanel x:Name="ProZusatzBereich" Margin="0,18,0,0" />
         </StackPanel>
     </ScrollViewer>
 </UserControl>

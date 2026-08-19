@@ -40,8 +40,11 @@ public static class MemtestVulkanOutputParser
 
     // Wird von VramTestService pro empfangener Konsolenzeile aufgerufen, waehrend
     // memtest_vulkan noch laeuft - mutiert das uebergebene Ergebnisobjekt direkt,
-    // damit der Aufrufer den Live-Fortschritt (Iterationen/GB) anzeigen kann.
-    public static void ZeileVerarbeiten(string zeile, VramTestParseResult ergebnis)
+    // damit der Aufrufer den Live-Fortschritt (Iterationen/GB) anzeigen kann. "zeitpunkt"
+    // ist optional (Parse() beim Batch-Verarbeiten fertiger Zeilenlisten braucht ihn nicht) -
+    // nur wenn er mitgegeben wird, landet er in FehlerZeitpunkte fuer den spaeteren
+    // Temperatur-Abgleich (s. VramThermalAuswertung).
+    public static void ZeileVerarbeiten(string zeile, VramTestParseResult ergebnis, DateTime? zeitpunkt = null)
     {
         if (string.IsNullOrWhiteSpace(zeile)) return;
 
@@ -58,6 +61,7 @@ public static class MemtestVulkanOutputParser
         {
             ergebnis.FehlerAnzahl++;
             ergebnis.FehlerDetails.Add(fehler.Groups["detail"].Value.Trim());
+            if (zeitpunkt is { } zp) ergebnis.FehlerZeitpunkte.Add(zp);
             return;
         }
 

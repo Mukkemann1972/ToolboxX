@@ -11,7 +11,15 @@ public partial class BiosKompendiumView : UserControl
     private readonly BiosInfoService _biosInfo = new();
     private readonly BiosKompendiumService _kompendium = new();
 
-    private record KategorieAuswahl(string Anzeige, BiosKategorie? Wert);
+    // ToString() bewusst ueberschrieben: die geschlossene ComboBox-Box faellt in unserem
+    // eigenen ComboBox-Template (ToolboxXTheme.xaml) auf ToString() zurueck statt zuverlaessig
+    // DisplayMemberPath zu respektieren (WPF-Eigenheit bei benutzerdefinierten Templates) -
+    // ohne diese Ueberschreibung stand hier der rohe Record-Text
+    // "KategorieAuswahl { Anzeige = Alle, Wert = <null> }" statt "Alle".
+    private record KategorieAuswahl(string Anzeige, BiosKategorie? Wert)
+    {
+        public override string ToString() => Anzeige;
+    }
 
     public BiosKompendiumView()
     {
@@ -59,6 +67,18 @@ public partial class BiosKompendiumView : UserControl
                   (string.IsNullOrEmpty(info.ReleaseDatum) ? "" : $" vom {info.ReleaseDatum}"),
                   $"Your BIOS: {info.Hersteller}, version {info.Version}" +
                   (string.IsNullOrEmpty(info.ReleaseDatum) ? "" : $" from {info.ReleaseDatum}"));
+
+        // Einziger echter Live-Wert in diesem sonst statischen Nachschlagewerk (s.
+        // BiosInfoService-Kommentar) - Windows kann keine BIOS-EINSTELLUNGEN auslesen, aber
+        // diesen einen Grundmodus zuverlaessig ueber eine native API (GetFirmwareType).
+        var firmwareTyp = FirmwareTypService.Ermitteln();
+        FirmwareTypZeile.Text = firmwareTyp switch
+        {
+            FirmwareTyp.Uefi => Loc.T("Startmodus: UEFI", "Boot mode: UEFI"),
+            FirmwareTyp.LegacyBios => Loc.T("Startmodus: Legacy-BIOS (kein UEFI)", "Boot mode: Legacy BIOS (no UEFI)"),
+            _ => Loc.T("Startmodus: konnte nicht ermittelt werden", "Boot mode: could not be determined")
+        };
+        FirmwareRufusHinweis.Text = FirmwareTypErklaerung.RufusHinweis(firmwareTyp);
     }
 
     private void Filter_Changed(object sender, RoutedEventArgs e) => ListeAktualisieren();

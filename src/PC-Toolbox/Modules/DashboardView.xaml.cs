@@ -1,6 +1,9 @@
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
+using Microsoft.Win32;
 using PCToolbox.Models;
 using PCToolbox.Services;
 using PCToolboxCore;
@@ -11,6 +14,13 @@ public partial class DashboardView : UserControl
 {
     private readonly SystemInfoService _service = new();
     private readonly HardwareInfoService _hardware = new();
+    private readonly SystemmonitorService _monitorDienst = new();
+    private readonly SystemmonitorVerlauf _monitorVerlauf = new(900); // 30 Min. bei 2s-Takt
+
+    // Eigener Timer statt Dauerbetrieb wie bei GpuDiagnoseView's Live-Auslastung: hier wird
+    // zusätzlich ein Verlauf für den CSV-Export aufgezeichnet, das soll bewusst nicht schon beim
+    // bloßen Öffnen der Seite im Hintergrund starten - der Nutzer entscheidet per Klick.
+    private readonly DispatcherTimer _monitorTimer = new() { Interval = TimeSpan.FromSeconds(2) };
 
     public DashboardView()
     {
@@ -23,6 +33,21 @@ public partial class DashboardView : UserControl
         StatusText.Text = Loc.T("Lade...", "Loading...");
         ArbeitsspeicherTitel.Text = Loc.T("Arbeitsspeicher", "Memory");
         LaufwerkeTitel.Text = Loc.T("Laufwerke", "Drives");
+
+        MonitorTitel.Text = Loc.T("Live-Systemmonitor", "Live system monitor");
+        MonitorEinleitung.Text = Loc.T(
+            "Beobachtet CPU/RAM/Disk/Netzwerk in Echtzeit (alle 2 Sekunden) und zeichnet den Verlauf auf " +
+            "- z.B. um ein sporadisches Ruckeln oder eine unerklärliche Auslastung über einige Minuten " +
+            "einzufangen. Der Verlauf lässt sich als CSV speichern (Semikolon-getrennt).",
+            "Watches CPU/RAM/disk/network in real time (every 2 seconds) and records the history - e.g. to " +
+            "catch sporadic stuttering or unexplained load over a few minutes. The history can be saved as " +
+            "CSV (semicolon-separated).");
+        MonitorStartStopButton.Content = Loc.T("Aufzeichnung starten", "Start recording");
+        MonitorCsvButton.Content = Loc.T("Verlauf als CSV speichern …", "Save history as CSV…");
+        DiskLabel.Text = Loc.T("Disk", "Disk");
+        NetzwerkLabel.Text = Loc.T("Netzwerk", "Network");
+
+        _monitorTimer.Tick += async (_, _) => await MonitorMessenAsync();
 
         Loaded += async (_, _) =>
         {
@@ -40,6 +65,58 @@ public partial class DashboardView : UserControl
                     System.Windows.MessageBoxImage.Error);
             }
         };
+        Unloaded += (_, _) => _monitorTimer.Stop();
+    }
+
+    private async void MonitorStartStop_Click(object sender, RoutedEventArgs e)
+    {
+        if (_monitorTimer.IsEnabled)
+        {
+            _monitorTimer.Stop();
+            MonitorStartStopButton.Content = Loc.T("Aufzeichnung starten", "Start recording");
+            MonitorStatusText.Text = Loc.T(
+                $"Gestoppt. {_monitorVerlauf.Werte.Count} Messpunkt(e) aufgezeichnet.",
+                $"Stopped. {_monitorVerlauf.Werte.Count} sample(s) recorded.");
+            return;
+        }
+
+        MonitorStartStopButton.Content = Loc.T("Aufzeichnung stoppen", "Stop recording");
+        MonitorStatusText.Text = "";
+        await MonitorMessenAsync();
+        _monitorTimer.Start();
+    }
+
+    private async Task MonitorMessenAsync()
+    {
+        var messwert = await _monitorDienst.MessenAsync();
+        _monitorVerlauf.Hinzufuegen(messwert);
+
+        CpuBalken.Value = messwert.CpuProzent;
+        CpuText.Text = $"{messwert.CpuProzent:0} %";
+        RamBalken.Value = messwert.RamProzent;
+        RamText.Text = $"{messwert.RamProzent:0} %";
+        DiskBalken.Value = messwert.DiskProzent;
+        DiskText.Text = $"{messwert.DiskProzent:0} %";
+        NetzwerkText.Text = messwert.NetzwerkKbps >= 1024
+            ? $"{messwert.NetzwerkKbps / 1024.0:0.#} MB/s"
+            : $"{messwert.NetzwerkKbps:0} KB/s";
+
+        MonitorCsvButton.IsEnabled = _monitorVerlauf.Werte.Count > 0;
+    }
+
+    private void MonitorCsvExportieren_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new SaveFileDialog
+        {
+            FileName = $"ToolboxX-Systemmonitor-{DateTime.Now:yyyy-MM-dd-HHmm}.csv",
+            Filter = Loc.T("CSV-Datei (*.csv)|*.csv", "CSV file (*.csv)|*.csv")
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        File.WriteAllText(dialog.FileName, SystemmonitorCsv.ZuCsv(_monitorVerlauf.Werte));
+        MonitorStatusText.Text = Loc.T(
+            $"✔ {_monitorVerlauf.Werte.Count} Messpunkt(e) gespeichert.",
+            $"✔ {_monitorVerlauf.Werte.Count} sample(s) saved.");
     }
 
     private async Task LadeAsync()

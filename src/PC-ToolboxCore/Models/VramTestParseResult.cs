@@ -13,6 +13,13 @@ public class VramTestParseResult
     public int FehlerAnzahl { get; set; }
     public List<string> FehlerDetails { get; } = new();
 
+    // Zeitpunkt jedes gefundenen Fehlers (best effort - nur gefuellt, wenn der Aufrufer
+    // ZeileVerarbeiten mit einem Zeitpunkt fuettert, s. VramTestService). Grundlage fuer den
+    // Abgleich mit der parallel mitgeloggten GPU-Temperatur (s. VramThermalAuswertung) -
+    // faellt ein Fehler zeitlich mit einer besonders hohen Temperatur zusammen, deutet das eher
+    // auf Ueberhitzung als auf einen echten Speicherdefekt hin.
+    public List<DateTime> FehlerZeitpunkte { get; } = new();
+
     public bool Abgestuerzt { get; set; }
     public string? AbsturzMeldung { get; set; }
 

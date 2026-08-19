@@ -7,6 +7,9 @@
 
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
             <TextBlock x:Name="SucheLabel" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <Button x:Name="AktualisierenButton" DockPanel.Dock="Right" Content="🔄" Padding="8,4" Margin="6,0,0,0"
+                    Click="Aktualisieren_Click" />
+            <CheckBox x:Name="GruppierenBox" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="10,0,0,0" Checked="GruppierenBox_Geaendert" Unchecked="GruppierenBox_Geaendert" />
             <TextBox x:Name="SucheBox" Padding="4" TextChanged="SucheBox_TextChanged" />
         </DockPanel>
 
@@ -39,6 +42,16 @@
 
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <ItemsControl x:Name="Liste">
+                <ItemsControl.GroupStyle>
+                    <GroupStyle>
+                        <GroupStyle.HeaderTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14"
+                                           Foreground="{StaticResource AccentBrush}" Margin="0,14,0,4" />
+                            </DataTemplate>
+                        </GroupStyle.HeaderTemplate>
+                    </GroupStyle>
+                </ItemsControl.GroupStyle>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Border BorderBrush="#DDD" BorderThickness="0,0,0,1" Padding="0,6">

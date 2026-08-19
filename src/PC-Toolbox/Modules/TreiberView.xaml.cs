@@ -10,6 +10,7 @@ namespace PCToolbox.Modules;
 public partial class TreiberView : UserControl
 {
     private readonly TreiberService _dienst = new();
+    private readonly DumpReader _dumpReader = new();
     private List<TreiberZeile> _alle = [];
 
     public TreiberView()
@@ -42,9 +43,21 @@ public partial class TreiberView : UserControl
         var geraete = await _dienst.LadeGeraeteAsync();
         var heute = DateTime.Today;
 
+        // Best-effort-Abgleich mit den letzten Abstürzen: DumpReader ermittelt pro Bluescreen
+        // schon einen wahrscheinlichen Verursacher-Dateinamen (aus der Minidump-Modulliste) -
+        // hier wird das gegen die hier geladenen Treiber-Dateinamen abgeglichen, statt die beiden
+        // Listen isoliert nebeneinander stehen zu lassen.
+        List<BluescreenEntry> abstuerze;
+        try { abstuerze = await _dumpReader.GetLetzteBluescreensAsync(); }
+        catch { abstuerze = []; }
+
+        var verdachte = TreiberBluescreenKorrelation.Ermitteln(
+            geraete,
+            abstuerze.Select(a => (a.VerursacherTreiber, a.Zeitpunkt)).ToList());
+
         _alle = geraete
-            .Select(g => new TreiberZeile(g, TreiberBewerter.Bewerten(g, heute), FarbeFuer))
-            .OrderBy(z => Reihenfolge(z.Ampel))
+            .Select(g => new TreiberZeile(g, TreiberBewerter.Bewerten(g, heute), FarbeFuer, AbsturzHinweisFuer(g, verdachte)))
+            .OrderBy(z => z.HatAbsturzHinweis ? -1 : Reihenfolge(z.Ampel))
             .ThenBy(z => z.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
 
@@ -64,9 +77,12 @@ public partial class TreiberView : UserControl
 
     private void AnzeigeAktualisieren()
     {
+        // Ein Gerät mit Absturz-Verdacht bleibt sichtbar, auch wenn Windows selbst (Ampel Grün)
+        // keinen Fehler meldet - genau dieser Fall (Treiber läuft technisch, verursacht aber
+        // nachweislich Abstürze) wäre sonst hinter der "fehlerfrei ausblenden"-Logik versteckt.
         var sichtbar = AlleAnzeigenBox.IsChecked == true
             ? _alle
-            : _alle.Where(z => z.Ampel != AmpelStatus.Gruen).ToList();
+            : _alle.Where(z => z.Ampel != AmpelStatus.Gruen || z.HatAbsturzHinweis).ToList();
 
         // Gruppiert nach Kategorie statt einer langen flachen Liste - die Reihenfolge der
         // Zeilen innerhalb einer Gruppe (Rot vor Gelb vor Gruen) bleibt dabei erhalten,
@@ -76,6 +92,35 @@ public partial class TreiberView : UserControl
             .OrderBy(g => g.Key, StringComparer.CurrentCultureIgnoreCase)
             .Select(g => new TreiberGruppe { Kategorie = g.Key, Zeilen = g.ToList() })
             .ToList();
+    }
+
+    private static string? AbsturzHinweisFuer(GeraetBefund geraet, IReadOnlyList<TreiberVerdacht> verdachte)
+    {
+        if (string.IsNullOrWhiteSpace(geraet.TreiberDateiname)) return null;
+
+        var treffer = verdachte.FirstOrDefault(v =>
+            string.Equals(v.TreiberDateiname, geraet.TreiberDateiname, StringComparison.OrdinalIgnoreCase));
+        if (treffer is null) return null;
+
+        if (treffer.KuerzlichVorDemAbsturzAktualisiert)
+        {
+            var tage = (treffer.AbsturzZeitpunkt - treffer.TreiberInstalliertAm!.Value).Days;
+            return Loc.T(
+                $"⚠ Dieser Treiber wurde am {treffer.TreiberInstalliertAm:dd.MM.yyyy} installiert - {tage} Tag(e) später, am " +
+                $"{treffer.AbsturzZeitpunkt:dd.MM.yyyy HH:mm}, gab es einen Absturz, bei dem genau diese Treiberdatei als " +
+                "wahrscheinlicher Verursacher erkannt wurde. Kein Beweis, aber ein guter erster Ansatzpunkt: diesen Treiber " +
+                "neu installieren oder beim Hersteller nach einer neueren Version suchen.",
+                $"⚠ This driver was installed on {treffer.TreiberInstalliertAm:yyyy-MM-dd} - {tage} day(s) later, on " +
+                $"{treffer.AbsturzZeitpunkt:yyyy-MM-dd HH:mm}, a crash occurred where this exact driver file was identified as " +
+                "the likely cause. Not proof, but a good first thing to check: reinstall this driver or look for a newer " +
+                "version from the manufacturer.");
+        }
+
+        return Loc.T(
+            $"⚠ Diese Treiberdatei wurde bei einem Absturz am {treffer.AbsturzZeitpunkt:dd.MM.yyyy HH:mm} als wahrscheinlicher " +
+            "Verursacher erkannt (Best-Effort-Zuordnung, keine sichere Diagnose).",
+            $"⚠ This driver file was identified as the likely cause of a crash on {treffer.AbsturzZeitpunkt:yyyy-MM-dd HH:mm} " +
+            "(best-effort match, not a certain diagnosis).");
     }
 
     private static int Reihenfolge(AmpelStatus ampel) => ampel switch
@@ -109,7 +154,7 @@ public class TreiberZeile
 {
     private readonly GeraetBefund _geraet;
 
-    public TreiberZeile(GeraetBefund geraet, TreiberBewertung bewertung, Func<AmpelStatus, Brush> farbe)
+    public TreiberZeile(GeraetBefund geraet, TreiberBewertung bewertung, Func<AmpelStatus, Brush> farbe, string? absturzHinweis = null)
     {
         _geraet = geraet;
         Ampel = bewertung.Ampel;
@@ -118,6 +163,7 @@ public class TreiberZeile
         Empfehlung = bewertung.Empfehlung;
         Symbol = bewertung.Ampel.Symbol();
         AmpelFarbe = farbe(bewertung.Ampel);
+        AbsturzHinweis = absturzHinweis;
     }
 
     public AmpelStatus Ampel { get; }
@@ -128,6 +174,8 @@ public class TreiberZeile
     public string Empfehlung { get; }
     public string Symbol { get; }
     public Brush AmpelFarbe { get; }
+    public string? AbsturzHinweis { get; }
+    public bool HatAbsturzHinweis => !string.IsNullOrEmpty(AbsturzHinweis);
 
     public string Herkunft
     {

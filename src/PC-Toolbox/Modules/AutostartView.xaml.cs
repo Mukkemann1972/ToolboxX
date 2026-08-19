@@ -5,12 +5,22 @@ using PCToolbox.Models;
 using PCToolbox.Services;
 using PCToolboxCore;
 using PCToolboxCore.Models;
+#if PRO_BUILD
+using PCToolbox.Services.Pro;
+using PCToolboxCore.Pro;
+#endif
 
 namespace PCToolbox.Modules;
 
 public partial class AutostartView : UserControl
 {
     private readonly AutostartService _dienst = new();
+
+#if PRO_BUILD
+    private readonly BootAuswirkungService _bootAuswirkungService = new();
+    private TextBlock _bootStatusText = null!;
+    private StackPanel _bootListe = null!;
+#endif
 
     public AutostartView()
     {
@@ -30,8 +40,15 @@ public partial class AutostartView : UserControl
         AktualisierenButton.Content = Loc.T("Neu einlesen", "Reload");
         WeitereOrteBereich.Header = Loc.T("Weitere, seltenere Orte prüfen", "Check further, rarer locations");
 
+#if PRO_BUILD
+        BauBootAuswirkungBereich();
+#endif
+
         Loaded += async (_, _) => await EinlesenAsync();
         Loaded += async (_, _) => await WeitereOrteLadenAsync();
+#if PRO_BUILD
+        Loaded += async (_, _) => await BootAuswirkungLadenAsync();
+#endif
     }
 
     private async Task WeitereOrteLadenAsync()
@@ -153,6 +170,117 @@ public partial class AutostartView : UserControl
 
         await EinlesenAsync();
     }
+
+#if PRO_BUILD
+    /// <summary>
+    /// Boot-Auswirkung (Pro) - anderer Charakter als die Free-Liste oben (die zeigt ALLES, was
+    /// potenziell mitstartet, rein aus Registry/Ordner-Vorhandensein). Hier stehen nur Einträge,
+    /// die WINDOWS SELBST als tatsächliche Boot-Verzögerung gemessen hat (ETW, s.
+    /// BootAuswirkungService) - echte Millisekunden statt Vermutung. Genau die im Backlog
+    /// (IDEEN_BACKLOG.md) schon als offene Idee vermerkte "Startzeit-Messung".
+    /// </summary>
+    private void BauBootAuswirkungBereich()
+    {
+        ProZusatzBereich.Children.Add(new TextBlock
+        {
+            Text = Loc.T("Boot-Auswirkung, gemessen (Pro)", "Boot impact, measured (Pro)"),
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 14,
+            Margin = new Thickness(0, 0, 0, 4)
+        });
+
+        if (!WindowsReparaturService.HatAdminRechte())
+        {
+            ProZusatzBereich.Children.Add(new TextBlock
+            {
+                Text = Loc.T(
+                    "Windows lässt das Auslesen der eigenen Boot-Messwerte nur mit Administratorrechten zu - " +
+                    "Toolbox X per Rechtsklick „Als Administrator ausführen\" neu starten, um diesen Bereich zu nutzen.",
+                    "Windows only allows reading its own boot measurements with administrator rights - " +
+                    "restart Toolbox X via right-click \"Run as administrator\" to use this section."),
+                Foreground = (Brush)FindResource("WarnBrush"),
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap
+            });
+            return;
+        }
+
+        ProZusatzBereich.Children.Add(new TextBlock
+        {
+            Text = Loc.T(
+                "Windows protokolliert bei jedem Start selbst, welche Programme den Systemstart wirklich " +
+                "verzögert haben - in echten Millisekunden, nicht geschätzt. Gemittelt über alle bisher " +
+                "protokollierten Starts.",
+                "Windows itself logs at every startup which programs actually delayed the system start - " +
+                "in real milliseconds, not estimated. Averaged over all previously logged startups."),
+            Foreground = (Brush)FindResource("TextMutedBrush"),
+            FontSize = 12,
+            Margin = new Thickness(0, 0, 0, 8),
+            TextWrapping = TextWrapping.Wrap
+        });
+
+        _bootStatusText = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) };
+        _bootListe = new StackPanel();
+
+        ProZusatzBereich.Children.Add(_bootStatusText);
+        ProZusatzBereich.Children.Add(_bootListe);
+    }
+
+    private async Task BootAuswirkungLadenAsync()
+    {
+        if (!WindowsReparaturService.HatAdminRechte()) return;
+
+        _bootStatusText.Text = Loc.T("Werte Boot-Protokoll aus …", "Analyzing boot log…");
+        _bootListe.Children.Clear();
+
+        var zusammenfassungen = await _bootAuswirkungService.LadenAsync();
+
+        if (zusammenfassungen.Count == 0)
+        {
+            _bootStatusText.Text = Loc.T(
+                "Keine Boot-Verzögerungen protokolliert - entweder läuft alles schnell genug, oder Windows hat " +
+                "noch keine auffälligen Starts aufgezeichnet.",
+                "No boot delays logged - either everything runs fast enough, or Windows hasn't recorded any " +
+                "noteworthy startups yet.");
+            return;
+        }
+
+        _bootStatusText.Text = Loc.T($"{zusammenfassungen.Count} Programm(e) mit protokollierter Boot-Verzögerung:",
+                                     $"{zusammenfassungen.Count} program(s) with logged boot delay:");
+
+        foreach (var z in zusammenfassungen.Take(15))
+        {
+            var zeile = new Border
+            {
+                Background = (Brush)FindResource("BgCardBrush"),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(10, 8, 10, 8),
+                Margin = new Thickness(0, 0, 0, 6)
+            };
+
+            var inhalt = new StackPanel();
+            inhalt.Children.Add(new TextBlock
+            {
+                Text = $"{z.Ampel.Symbol()} {(string.IsNullOrWhiteSpace(z.Anzeigename) ? z.Dateiname : z.Anzeigename)}",
+                FontWeight = FontWeights.Bold,
+                TextWrapping = TextWrapping.Wrap
+            });
+            inhalt.Children.Add(new TextBlock
+            {
+                Text = Loc.T(
+                    $"⌀ {z.DurchschnittDegradationMs} ms Verzögerung · {z.AnzahlMessungen}x gemessen · zuletzt {z.LetzteMessungUtc.ToLocalTime():dd.MM.yyyy} · {z.Dateiname}",
+                    $"⌀ {z.DurchschnittDegradationMs} ms delay · measured {z.AnzahlMessungen}x · last {z.LetzteMessungUtc.ToLocalTime():yyyy-MM-dd} · {z.Dateiname}"),
+                FontSize = 11,
+                Foreground = (Brush)FindResource("TextMutedBrush"),
+                Margin = new Thickness(0, 2, 0, 0),
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            zeile.Child = inhalt;
+            _bootListe.Children.Add(zeile);
+        }
+    }
+#endif
 }
 
 /// <summary>

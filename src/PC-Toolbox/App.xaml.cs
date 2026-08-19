@@ -49,12 +49,76 @@ public partial class App : Application
                 MessageBoxImage.Error);
         };
 
+#if PRO_BUILD
+        // Vom geplanten Task (s. Services/Pro/SyncZeitplanService) taeglich unbeaufsichtigt
+        // gestartet - deshalb KEIN Fenster, KEINE MessageBox (haenge sonst fuer immer, niemand
+        // ist da zum Wegklicken) und ein eigener try/catch statt der globalen Handler oben.
+        if (e.Args.Any(a => a.Equals("--sync-headless", StringComparison.OrdinalIgnoreCase)))
+        {
+            HeadlessSyncAusfuehren();
+            Shutdown();
+            return;
+        }
+
+        // Vom geplanten Task (s. Services/Pro/SmartUeberwachungService) taeglich
+        // unbeaufsichtigt gestartet - nimmt nur einen SMART-Schnappschuss auf, kein Fenster.
+        if (e.Args.Any(a => a.Equals("--smart-headless", StringComparison.OrdinalIgnoreCase)))
+        {
+            HeadlessSmartSchnappschussAufnehmen();
+            Shutdown();
+            return;
+        }
+#endif
+
         ApplyTheme(settings.Theme, settings.AccentColor);
 
         // Kein StartupUri (s. App.xaml) - erst NACH dem Theme-Laden erzeugen,
         // sonst wuerden Styles mit den alten/leeren Ressourcen aufgeloest.
         new MainWindow().Show();
     }
+
+#if PRO_BUILD
+    private static void HeadlessSyncAusfuehren()
+    {
+        try
+        {
+            var profil = PCToolbox.Services.Pro.SyncZeitplanService.ProfilLaden();
+            if (profil is null)
+            {
+                DiagnoseLog.Schreiben("HeadlessSync", "Kein gespeichertes Zeitplan-Profil gefunden - Lauf uebersprungen.");
+                return;
+            }
+
+            var dienst = new PCToolbox.Services.Pro.SyncService();
+            var plan = dienst.PlanErstellenAsync(profil.Quelle, profil.Ziel, profil.Spiegeln).GetAwaiter().GetResult();
+            var ergebnis = dienst.AusfuehrenAsync(
+                profil.Quelle, profil.Ziel, plan, profil.Sichern, profil.Pruefen, profil.Rettungsmodus, null)
+                .GetAwaiter().GetResult();
+
+            DiagnoseLog.Schreiben("HeadlessSync",
+                $"Geplanter Sync fertig: {ergebnis.Erfolgreich} erfolgreich, {ergebnis.FehlerDateien.Count} fehlgeschlagen, " +
+                $"{ergebnis.PruefFehler.Count} Pruef-Fehler, {plan.Count} Aktion(en) geplant.");
+        }
+        catch (Exception ex)
+        {
+            DiagnoseLog.Schreiben("HeadlessSync", ex.ToString());
+        }
+    }
+
+    private static void HeadlessSmartSchnappschussAufnehmen()
+    {
+        try
+        {
+            var dienst = new PCToolbox.Services.Pro.SmartUeberwachungService();
+            var anzahl = dienst.SchnappschussAufnehmenAsync().GetAwaiter().GetResult();
+            DiagnoseLog.Schreiben("HeadlessSmart", $"Schnappschuss aufgenommen fuer {anzahl} Laufwerk(e).");
+        }
+        catch (Exception ex)
+        {
+            DiagnoseLog.Schreiben("HeadlessSmart", ex.ToString());
+        }
+    }
+#endif
 
     // Laedt die passende Theme-Datei als Text (bewusst NICHT als kompilierte
     // WPF-Page, s. .csproj), ersetzt die Akzentfarben-Platzhalter durch die

@@ -1,9 +1,16 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using Microsoft.Win32;
 using PCToolbox.Converters;
 using PCToolbox.Models;
 using PCToolbox.Services;
 using PCToolboxCore;
+#if PRO_BUILD
+using PCToolbox.Services.Pro;
+using PCToolboxCore.Pro;
+#endif
 
 namespace PCToolbox.Modules;
 
@@ -12,6 +19,21 @@ public partial class WindowsReparaturView : UserControl
     private readonly WindowsReparaturService _service = new();
     private readonly WindowsUpdateVerlaufService _updateVerlaufService = new();
     private CancellationTokenSource? _abbruch;
+    private string? _geladenerSchluessel;
+
+#if PRO_BUILD
+    private readonly KomponentenspeicherService _komponentenspeicherService = new();
+    private Button _analysierenButton = null!;
+    private Button _bereinigenButton = null!;
+    private Button _bereinigenResetBaseButton = null!;
+    private TextBlock _komponentenspeicherStatusText = null!;
+    private TextBlock _komponentenspeicherMeldung = null!;
+
+    private readonly UpdateReparaturService _updateReparaturService = new();
+    private Button _updateResetButton = null!;
+    private Button _updateResetSequenzButton = null!;
+    private TextBlock _updateResetMeldung = null!;
+#endif
 
     public WindowsReparaturView()
     {
@@ -45,6 +67,24 @@ public partial class WindowsReparaturView : UserControl
         SfcRohBereich.Header = Loc.T("Originalausgabe von Windows anzeigen", "Show original Windows output");
 
         UpdateVerlaufBereich.Header = Loc.T("Windows-Update-Verlauf (letzte 15)", "Windows update history (last 15)");
+
+        SchluesselBereich.Header = Loc.T("Produktschlüssel sichern", "Back up product key");
+        SchluesselErklaerung.Text = Loc.T(
+            "Liest den werksseitig hinterlegten OEM-Produktschlüssel aus - praktisch, um ihn VOR " +
+            "einer Neuinstallation zu sichern. Rein lesend, ändert nichts. Wird nichts gefunden, " +
+            "ist das bei vielen Windows-10/11-Installationen normal: eine digitale Lizenz hängt " +
+            "am Microsoft-Konto bzw. der Hardware selbst, nicht an einem 25-stelligen Schlüssel.",
+            "Reads the factory-embedded OEM product key - handy to back up BEFORE a reinstall. " +
+            "Read-only, changes nothing. Finding nothing is normal on many Windows 10/11 " +
+            "installations: a digital license is tied to the Microsoft account or the hardware " +
+            "itself, not to a 25-character key.");
+        SchluesselLadenButton.Content = Loc.T("Schlüssel anzeigen", "Show key");
+        SchluesselSpeichernButton.Content = Loc.T("Als Datei speichern …", "Save as file …");
+
+#if PRO_BUILD
+        BauKomponentenspeicherBereich();
+        BauUpdateReparaturBereich();
+#endif
 
         Loaded += (_, _) =>
         {
@@ -147,6 +187,62 @@ public partial class WindowsReparaturView : UserControl
     }
 
     private void Abbrechen_Click(object sender, RoutedEventArgs e) => _abbruch?.Cancel();
+
+    private async void SchluesselLaden_Click(object sender, RoutedEventArgs e)
+    {
+        SchluesselLadenButton.IsEnabled = false;
+        SchluesselStatusText.Text = Loc.T("Lese …", "Reading…");
+        SchluesselStatusText.Foreground = (Brush)FindResource("TextMutedBrush");
+
+        _geladenerSchluessel = await ProduktSchluesselService.OemSchluesselLadenAsync();
+        SchluesselLadenButton.IsEnabled = true;
+
+        if (_geladenerSchluessel is null || !ProduktSchluesselFormat.SiehtGueltigAus(_geladenerSchluessel))
+        {
+            SchluesselFeld.Visibility = Visibility.Collapsed;
+            SchluesselSpeichernButton.Visibility = Visibility.Collapsed;
+            SchluesselStatusText.Text = Loc.T(
+                "Kein Firmware-Schlüssel gefunden - üblich bei digitaler Lizenz (s. Erklärung oben), kein Fehler.",
+                "No firmware key found - common with a digital license (see explanation above), not an error.");
+            SchluesselStatusText.Foreground = (Brush)FindResource("TextMutedBrush");
+            return;
+        }
+
+        SchluesselFeld.Text = _geladenerSchluessel;
+        SchluesselFeld.Visibility = Visibility.Visible;
+        SchluesselSpeichernButton.Visibility = Visibility.Visible;
+        SchluesselStatusText.Text = Loc.T("✔ Schlüssel gefunden.", "✔ Key found.");
+        SchluesselStatusText.Foreground = (Brush)FindResource("OkBrush");
+    }
+
+    private void SchluesselSpeichern_Click(object sender, RoutedEventArgs e)
+    {
+        if (_geladenerSchluessel is null) return;
+
+        var dialog = new SaveFileDialog
+        {
+            Title = Loc.T("Produktschlüssel speichern", "Save product key"),
+            Filter = "Textdatei (*.txt)|*.txt",
+            FileName = $"windows-produktschluessel-{Environment.MachineName}-{DateTime.Now:yyyy-MM-dd}.txt"
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        try
+        {
+            var inhalt = Loc.T(
+                $"Windows-Produktschlüssel für {Environment.MachineName}\nGesichert am {DateTime.Now:dd.MM.yyyy HH:mm}\n\n{_geladenerSchluessel}\n",
+                $"Windows product key for {Environment.MachineName}\nSaved on {DateTime.Now:yyyy-MM-dd HH:mm}\n\n{_geladenerSchluessel}\n");
+            File.WriteAllText(dialog.FileName, inhalt);
+
+            SchluesselStatusText.Text = Loc.T($"✔ Gespeichert: {dialog.FileName}", $"✔ Saved: {dialog.FileName}");
+            SchluesselStatusText.Foreground = (Brush)FindResource("OkBrush");
+        }
+        catch (IOException ex)
+        {
+            SchluesselStatusText.Text = Loc.T($"✘ Konnte nicht gespeichert werden: {ex.Message}", $"✘ Could not save: {ex.Message}");
+            SchluesselStatusText.Foreground = (Brush)FindResource("DangerBrush");
+        }
+    }
 
     private async Task AusfuehrenAsync(string dismArgumente, string sfcArgumente, bool reparaturModus)
     {
@@ -306,4 +402,306 @@ public partial class WindowsReparaturView : UserControl
             _ => Loc.T("Prüfung durchgelaufen. Die Einzelbefunde stehen oben.", "Check completed. The individual findings are above.")
         };
     }
+
+#if PRO_BUILD
+    /// <summary>
+    /// Komponentenspeicher-Aufräumen (Pro) - bewusst getrennt vom Prüfen/Reparieren-Fluss oben:
+    /// hier geht es nicht um Beschädigung, sondern um Speicherplatz, den alte/überflüssige
+    /// Update-Versionen im WinSxS-Ordner belegen. Genau die Aktion, vor der die Free-Erklärung
+    /// oben warnt ("ein Tuning-Programm hat in WinSxS aufgeräumt") - hier aber über den
+    /// offiziellen DISM-Weg, mit ehrlicher Erklärung, was man dafür aufgibt (s. Bestätigungstexte
+    /// unten): die Möglichkeit, betroffene Updates später zu deinstallieren.
+    /// </summary>
+    private void BauKomponentenspeicherBereich()
+    {
+        var titel = new TextBlock
+        {
+            Text = Loc.T("Speicherplatz zurückgewinnen (Pro)", "Reclaim disk space (Pro)"),
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+        var erklaerung = new TextBlock
+        {
+            Text = Loc.T(
+                "Der Komponentenspeicher (WinSxS) sammelt mit jedem Windows-Update alte Dateiversionen an - " +
+                "die dienen als Rückfallebene, falls ein Update deinstalliert werden muss. DISM kann diese " +
+                "alten Versionen offiziell aufräumen (nicht von Hand löschen - genau das richtet echten Schaden an). " +
+                "Der Tradeoff: danach lassen sich die betroffenen Updates nicht mehr deinstallieren.",
+                "The component store (WinSxS) accumulates old file versions with every Windows update - " +
+                "they serve as a fallback if an update needs to be uninstalled. DISM can officially clean up these " +
+                "old versions (not by deleting by hand - that's exactly what causes real damage). " +
+                "The tradeoff: afterward, the affected updates can no longer be uninstalled."),
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = (Brush)FindResource("TextMutedBrush"),
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+
+        _analysierenButton = new Button
+        {
+            Content = Loc.T("Speicherplatz analysieren", "Analyze disk space"),
+            Padding = new Thickness(18, 10, 18, 10),
+            HorizontalAlignment = HorizontalAlignment.Left
+        };
+        _analysierenButton.Click += KomponentenspeicherAnalysieren_Click;
+
+        _komponentenspeicherStatusText = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            FontSize = 12,
+            Margin = new Thickness(0, 10, 0, 0)
+        };
+
+        _bereinigenButton = new Button
+        {
+            Content = Loc.T("Jetzt bereinigen", "Clean up now"),
+            Padding = new Thickness(18, 10, 18, 10),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(0, 10, 0, 0),
+            Visibility = Visibility.Collapsed
+        };
+        _bereinigenButton.Click += (_, _) => KomponentenspeicherBereinigenAsync(resetBase: false);
+
+        _bereinigenResetBaseButton = new Button
+        {
+            Content = Loc.T("Auch aktuelle Updates einschließen (ResetBase)", "Also include current updates (ResetBase)"),
+            Padding = new Thickness(18, 10, 18, 10),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(0, 8, 0, 0),
+            Visibility = Visibility.Collapsed
+        };
+        _bereinigenResetBaseButton.Click += (_, _) => KomponentenspeicherBereinigenAsync(resetBase: true);
+
+        _komponentenspeicherMeldung = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            FontSize = 13,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 10, 0, 0)
+        };
+
+        ProZusatzBereich.Children.Add(titel);
+        ProZusatzBereich.Children.Add(erklaerung);
+        ProZusatzBereich.Children.Add(_analysierenButton);
+        ProZusatzBereich.Children.Add(_komponentenspeicherStatusText);
+        ProZusatzBereich.Children.Add(_bereinigenButton);
+        ProZusatzBereich.Children.Add(_bereinigenResetBaseButton);
+        ProZusatzBereich.Children.Add(_komponentenspeicherMeldung);
+    }
+
+    private async void KomponentenspeicherAnalysieren_Click(object sender, RoutedEventArgs e) =>
+        await KomponentenspeicherAnalysierenAsync();
+
+    private async Task KomponentenspeicherAnalysierenAsync()
+    {
+        _analysierenButton.IsEnabled = false;
+        _bereinigenButton.Visibility = Visibility.Collapsed;
+        _bereinigenResetBaseButton.Visibility = Visibility.Collapsed;
+        _komponentenspeicherStatusText.Text = Loc.T("Analysiere Komponentenspeicher …", "Analyzing component store…");
+        _komponentenspeicherStatusText.Foreground = (Brush)FindResource("TextMutedBrush");
+
+        var (info, roh) = await _komponentenspeicherService.AnalysierenAsync();
+
+        if (info is null)
+        {
+            _komponentenspeicherStatusText.Text = Loc.T($"Analyse fehlgeschlagen: {roh}", $"Analysis failed: {roh}");
+            _komponentenspeicherStatusText.Foreground = (Brush)FindResource("DangerBrush");
+            _analysierenButton.IsEnabled = true;
+            return;
+        }
+
+        var groesseText = info.GroesseGb.HasValue
+            ? Loc.T($"Aktuelle Größe: {info.GroesseGb.Value:0.0} GB.", $"Current size: {info.GroesseGb.Value:0.0} GB.")
+            : "";
+        var letzteText = info.LetzteBereinigung.HasValue
+            ? Loc.T($" Letzte Bereinigung: {info.LetzteBereinigung.Value:dd.MM.yyyy}.", $" Last cleanup: {info.LetzteBereinigung.Value:yyyy-MM-dd}.")
+            : Loc.T(" Noch nie bereinigt.", " Never cleaned up.");
+        var empfehlungText = info.BereinigungEmpfohlen switch
+        {
+            true => Loc.T($" Windows empfiehlt eine Bereinigung ({info.WiederverwendbarePakete ?? 0} wiederverwendbare Pakete).",
+                          $" Windows recommends a cleanup ({info.WiederverwendbarePakete ?? 0} reclaimable packages)."),
+            false => Loc.T(" Windows sieht aktuell keinen Bereinigungsbedarf.", " Windows currently sees no need for cleanup."),
+            null => ""
+        };
+
+        _komponentenspeicherStatusText.Text = groesseText + letzteText + empfehlungText;
+        _komponentenspeicherStatusText.Foreground = (Brush)FindResource("TextMutedBrush");
+
+        var lohntSich = info.BereinigungEmpfohlen == true || (info.WiederverwendbarePakete ?? 0) > 0;
+        _bereinigenButton.Visibility = lohntSich ? Visibility.Visible : Visibility.Collapsed;
+        _bereinigenResetBaseButton.Visibility = lohntSich ? Visibility.Visible : Visibility.Collapsed;
+
+        _analysierenButton.IsEnabled = true;
+    }
+
+    private async void KomponentenspeicherBereinigenAsync(bool resetBase)
+    {
+        var antwort = resetBase
+            ? MessageBox.Show(
+                Loc.T(
+                    "ResetBase geht weiter als eine normale Bereinigung: danach lässt sich KEIN aktuell " +
+                    "installiertes Update mehr deinstallieren, nicht nur alte überflüssige Versionen. " +
+                    "Das gibt den meisten Platz frei, ist aber der am wenigsten rückgängig machbare Weg.\n\n" +
+                    "Nur fortfahren, wenn das Update-Deinstallieren wirklich egal ist.\n\nJetzt bereinigen?",
+                    "ResetBase goes further than a normal cleanup: afterward NO currently installed update " +
+                    "can be uninstalled anymore, not just old superseded versions. " +
+                    "This frees the most space, but is the least reversible option.\n\n" +
+                    "Only continue if being unable to uninstall updates truly doesn't matter to you.\n\nClean up now?"),
+                Loc.T("Komponentenspeicher bereinigen (ResetBase)", "Clean up component store (ResetBase)"),
+                MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No)
+            : MessageBox.Show(
+                Loc.T(
+                    "Alte, durch Updates überflüssig gewordene Dateiversionen werden entfernt. " +
+                    "Danach lassen sich genau diese Updates nicht mehr deinstallieren - der aktuelle " +
+                    "Windows-Zustand selbst ist davon nicht betroffen.\n\nJetzt bereinigen?",
+                    "Old file versions made superseded by updates are removed. " +
+                    "Afterward, exactly those updates can no longer be uninstalled - the current " +
+                    "Windows state itself is not affected.\n\nClean up now?"),
+                Loc.T("Komponentenspeicher bereinigen", "Clean up component store"),
+                MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+
+        if (antwort != MessageBoxResult.Yes) return;
+
+        _analysierenButton.IsEnabled = false;
+        _bereinigenButton.IsEnabled = false;
+        _bereinigenResetBaseButton.IsEnabled = false;
+        _komponentenspeicherMeldung.Text = Loc.T("Bereinige … das kann einige Minuten dauern.", "Cleaning up… this can take a few minutes.");
+        _komponentenspeicherMeldung.Foreground = (Brush)FindResource("TextMutedBrush");
+
+        var (erfolg, roh) = await _komponentenspeicherService.BereinigenAsync(resetBase,
+            zeile => Dispatcher.Invoke(() => _komponentenspeicherMeldung.Text = zeile));
+
+        _komponentenspeicherMeldung.Text = erfolg
+            ? Loc.T("✔ Bereinigung abgeschlossen.", "✔ Cleanup completed.")
+            : Loc.T($"✘ Bereinigung fehlgeschlagen: {roh}", $"✘ Cleanup failed: {roh}");
+        _komponentenspeicherMeldung.Foreground = erfolg ? (Brush)FindResource("OkBrush") : (Brush)FindResource("DangerBrush");
+
+        _bereinigenButton.IsEnabled = true;
+        _bereinigenResetBaseButton.IsEnabled = true;
+
+        // Direkt neu analysieren, damit die neue (kleinere) Größe als konkreter Beleg zu sehen
+        // ist, statt nur der Meldung "erfolgreich" zu vertrauen.
+        if (erfolg) await KomponentenspeicherAnalysierenAsync();
+    }
+
+    /// <summary>
+    /// Update-Komponenten zurücksetzen (Pro) - ein anderes Problem als das Aufräumen oben
+    /// (Speicherplatz vs. ein haengender/festgefahrener Update-Cache), s.
+    /// <see cref="UpdateReparaturService"/>. Bewusst als eigener Abschnitt statt in denselben
+    /// Bereich gemischt, damit klar bleibt, welche Aktion welches Problem loest.
+    /// </summary>
+    private void BauUpdateReparaturBereich()
+    {
+        var titel = new TextBlock
+        {
+            Text = Loc.T("Update-Komponenten zurücksetzen (Pro)", "Reset update components (Pro)"),
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 24, 0, 6)
+        };
+        var erklaerung = new TextBlock
+        {
+            Text = Loc.T(
+                "Ein anderes Problem als das Aufräumen oben: Windows lädt Updates in den Ordner " +
+                "SoftwareDistribution und merkt sich Zertifikatsdaten in catroot2 - wird dieser " +
+                "Cache inkonsistent (abgebrochener Download, fehlerhafte Signaturprüfung), bleibt " +
+                "Windows Update oft dauerhaft hängen, ohne verständliche Fehlermeldung. Die " +
+                "Update-Dienste werden kurz gestoppt, der Cache umbenannt (nicht gelöscht - als " +
+                "Backup-Ordner erhalten) und die Dienste neu gestartet. Windows baut beide Ordner " +
+                "danach automatisch neu auf.",
+                "A different problem than the cleanup above: Windows downloads updates into the " +
+                "SoftwareDistribution folder and keeps certificate data in catroot2 - if this " +
+                "cache becomes inconsistent (interrupted download, failed signature check), " +
+                "Windows Update often gets permanently stuck with no understandable error. The " +
+                "update services get stopped briefly, the cache gets renamed (not deleted - kept " +
+                "as a backup folder) and the services restart. Windows automatically rebuilds " +
+                "both folders afterward."),
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = (Brush)FindResource("TextMutedBrush"),
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+
+        _updateResetButton = new Button
+        {
+            Content = Loc.T("Update-Komponenten zurücksetzen", "Reset update components"),
+            Padding = new Thickness(18, 10, 18, 10),
+            HorizontalAlignment = HorizontalAlignment.Left
+        };
+        _updateResetButton.Click += (_, _) => UpdateResetAsync(auchDismSfc: false);
+
+        _updateResetSequenzButton = new Button
+        {
+            Content = Loc.T("Komplette Reparatursequenz (Reset + DISM + SFC)", "Full repair sequence (reset + DISM + SFC)"),
+            Padding = new Thickness(18, 10, 18, 10),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(0, 8, 0, 0)
+        };
+        _updateResetSequenzButton.Click += (_, _) => UpdateResetAsync(auchDismSfc: true);
+
+        _updateResetMeldung = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            FontSize = 13,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 10, 0, 0)
+        };
+
+        ProZusatzBereich.Children.Add(titel);
+        ProZusatzBereich.Children.Add(erklaerung);
+        ProZusatzBereich.Children.Add(_updateResetButton);
+        ProZusatzBereich.Children.Add(_updateResetSequenzButton);
+        ProZusatzBereich.Children.Add(_updateResetMeldung);
+    }
+
+    private async void UpdateResetAsync(bool auchDismSfc)
+    {
+        var basisText = Loc.T(
+            "Die Windows-Update-Dienste werden kurz gestoppt, der Update-Cache umbenannt " +
+            "(SoftwareDistribution + catroot2 - als Backup-Ordner erhalten, nicht gelöscht) und " +
+            "die Dienste neu gestartet. Während dieser wenigen Sekunden lassen sich keine " +
+            "Updates suchen oder installieren.",
+            "The Windows Update services get stopped briefly, the update cache gets renamed " +
+            "(SoftwareDistribution + catroot2 - kept as backup folders, not deleted) and the " +
+            "services restart. During these few seconds, updates can't be searched for or " +
+            "installed.");
+        var zusatzText = auchDismSfc
+            ? Loc.T(
+                "\n\nAnschließend läuft direkt die komplette Reparatursequenz weiter: " +
+                "Komponentenspeicher wiederherstellen (DISM) und Systemdateien ersetzen (sfc) - " +
+                "das dauert danach zusätzlich 10 bis 40 Minuten und braucht eine " +
+                "Internetverbindung.",
+                "\n\nAfterward, the full repair sequence continues directly: restore the " +
+                "component store (DISM) and replace system files (sfc) - this then takes an " +
+                "additional 10 to 40 minutes and needs an internet connection.")
+            : "";
+
+        var antwort = MessageBox.Show(
+            basisText + zusatzText + Loc.T("\n\nJetzt starten?", "\n\nStart now?"),
+            Loc.T("Update-Komponenten zurücksetzen", "Reset update components"),
+            MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+
+        if (antwort != MessageBoxResult.Yes) return;
+
+        _updateResetButton.IsEnabled = false;
+        _updateResetSequenzButton.IsEnabled = false;
+        _updateResetMeldung.Text = Loc.T("Wird zurückgesetzt …", "Resetting…");
+        _updateResetMeldung.Foreground = (Brush)FindResource("TextMutedBrush");
+
+        var (erfolg, meldung) = await _updateReparaturService.ZuruecksetzenAsync(
+            zeile => Dispatcher.Invoke(() => _updateResetMeldung.Text = zeile));
+
+        _updateResetMeldung.Text = (erfolg ? "✔ " : "✘ ") + meldung;
+        _updateResetMeldung.Foreground = erfolg ? (Brush)FindResource("OkBrush") : (Brush)FindResource("DangerBrush");
+
+        _updateResetButton.IsEnabled = true;
+        _updateResetSequenzButton.IsEnabled = true;
+
+        // Nur weitermachen, wenn das Zuruecksetzen selbst geklappt hat - sonst wuerden DISM/SFC
+        // gegen einen Update-Dienst laufen, der eventuell noch nicht sauber neu gestartet ist.
+        if (erfolg && auchDismSfc)
+        {
+            await AusfuehrenAsync(WindowsReparaturService.DismReparieren, WindowsReparaturService.SfcReparieren, reparaturModus: true);
+        }
+    }
+#endif
 }

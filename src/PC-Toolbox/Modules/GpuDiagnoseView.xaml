@@ -46,6 +46,10 @@
                 <StackPanel>
                     <TextBlock x:Name="VramTestTitel" FontWeight="SemiBold" Margin="0,0,0,8" />
 
+                    <!-- Nur im Pro-Build befuellt: Wahl zwischen memtest_vulkan (extern, Free)
+                         und dem eigenen Vulkan-Compute-Test (s. EigenerVramTestService). -->
+                    <StackPanel x:Name="ProZusatzBereich" Margin="0,0,0,10" />
+
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                         <TextBlock x:Name="TestdauerLabel" VerticalAlignment="Center" Margin="0,0,8,0" />
                         <ComboBox x:Name="DauerAuswahl" Width="140" SelectedIndex="0">
@@ -72,6 +76,24 @@
                             <TextBlock x:Name="ErgebnisText" TextWrapping="Wrap" Margin="0,6,0,0" />
                         </StackPanel>
                     </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- === RAM- & DirectX-Diagnose === -->
+            <Border Background="{StaticResource BgPanelBrush}" CornerRadius="10" Padding="16" Margin="0,16,0,0">
+                <StackPanel>
+                    <TextBlock x:Name="RamDirectXTitel" FontWeight="SemiBold" Margin="0,0,0,8" />
+                    <TextBlock x:Name="RamDirectXEinleitung" TextWrapping="Wrap" Foreground="{StaticResource TextMutedBrush}" FontSize="12" Margin="0,0,0,12" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <Button x:Name="DxDiagButton" Padding="12,6" Click="DxDiagErstellen_Click" />
+                        <Button x:Name="SpeicherdiagnoseButton" Padding="12,6" Margin="8,0,0,0" Click="Speicherdiagnose_Click" />
+                    </StackPanel>
+
+                    <TextBlock x:Name="DxDiagStatusText" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
+                    <StackPanel x:Name="DxDiagNotizenListe" Margin="0,0,0,8" />
+                    <Button x:Name="DxDiagSpeichernButton" Padding="10,5" HorizontalAlignment="Left"
+                            Visibility="Collapsed" Click="DxDiagSpeichern_Click" />
                 </StackPanel>
             </Border>
 

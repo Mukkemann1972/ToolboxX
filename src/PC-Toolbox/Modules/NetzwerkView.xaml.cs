@@ -4,6 +4,11 @@ using System.Windows.Media;
 using PCToolbox.Models;
 using PCToolbox.Services;
 using PCToolboxCore;
+#if PRO_BUILD
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
+using PCToolbox.Services.Pro;
+#endif
 
 namespace PCToolbox.Modules;
 
@@ -12,11 +17,23 @@ public partial class NetzwerkView : UserControl
     private readonly NetzwerkService _dienst = new();
     private readonly PortProgrammService _portDienst = new();
     private readonly VerbindungsUeberwachungService _ueberwachungDienst = new();
+    private readonly ZielDiagnoseService _zielDienst = new();
     private readonly List<VerbindungsMessung> _messungen = [];
+
+#if PRO_BUILD
+    private readonly WlanDetailsService _wlanDienst = new();
+    private TextBlock _wlanStatusText = null!;
+    private ItemsControl _wlanPasswortListe = null!;
+    private ItemsControl _wlanKanalListe = null!;
+#endif
 
     public NetzwerkView()
     {
         InitializeComponent();
+
+#if PRO_BUILD
+        WlanProBereichAufbauen();
+#endif
 
         TitelText.Text = Loc.T("Netzwerk-Diagnose", "Network diagnostics");
         QuelleHinweis.ToolTip = Loc.T(
@@ -27,6 +44,17 @@ public partial class NetzwerkView : UserControl
             "Checks the chain from the PC to the internet step by step and tells you where it snags - and what you can do about it. Only measurements are taken, nothing is changed.");
         PruefenButton.Content = Loc.T("Erneut prüfen", "Check again");
         VerbindungenBereich.Header = Loc.T("Wer redet gerade mit draußen?", "Who's currently talking to the outside?");
+
+        ZielDiagnoseBereich.Header = Loc.T("Eine bestimmte Adresse prüfen", "Check a specific address");
+        ZielErklaerung.Text = Loc.T(
+            "Die Prüfung oben beantwortet \"geht mein Internet überhaupt\" - hier geht es um die andere, " +
+            "genauso häufige Frage: \"Alles andere klappt, aber DIESE EINE Seite lädt nicht - woran " +
+            "liegt's?\" Adresse eingeben (z.B. mail.deinefirma.de), es wird nur gemessen, nichts verändert.",
+            "The check above answers \"is my internet working at all\" - this is the other, equally common " +
+            "question: \"everything else works, but THIS ONE site won't load - why?\" Enter an address " +
+            "(e.g. mail.yourcompany.com), only measurements are taken, nothing is changed.");
+        ZielEingabe.Text = "";
+        ZielPruefenButton.Content = Loc.T("Prüfen", "Check");
 
         UeberwachungBereich.Header = Loc.T("Dauerhafte Verbindungsüberwachung", "Continuous connection monitoring");
         UeberwachungErklaerung.Text = Loc.T(
@@ -40,6 +68,9 @@ public partial class NetzwerkView : UserControl
 
         Loaded += async (_, _) => await PruefenAsync();
         Loaded += async (_, _) => await VerbindungenLadenAsync();
+#if PRO_BUILD
+        Loaded += async (_, _) => await WlanProLadenAsync();
+#endif
         Unloaded += (_, _) => _ueberwachungDienst.Stoppen();
     }
 
@@ -158,6 +189,202 @@ public partial class NetzwerkView : UserControl
     };
 
     private async void Pruefen_Click(object sender, RoutedEventArgs e) => await PruefenAsync();
+
+    private async void ZielPruefen_Click(object sender, RoutedEventArgs e) => await ZielPruefenAsync();
+
+    private async Task ZielPruefenAsync()
+    {
+        var eingabe = ZielEingabe.Text.Trim();
+        if (eingabe.Length == 0)
+        {
+            ZielUrteilText.Text = Loc.T("Bitte eine Adresse eingeben.", "Please enter an address.");
+            return;
+        }
+
+        var ziel = ZielAusEingabe(eingabe);
+
+        ZielPruefenButton.IsEnabled = false;
+        ZielUrteilText.Text = Loc.T($"Prüfe {ziel} …", $"Checking {ziel}…");
+        ZielErgebnisListe.ItemsSource = null;
+
+        try
+        {
+            var messwerte = await _zielDienst.PruefenAsync(ziel);
+            var schritte = ZielDiagnoseAuswerter.Auswerten(messwerte);
+
+            ZielErgebnisListe.ItemsSource = schritte.Select(s => new NetzwerkZeile(s, FarbeFuer)).ToList();
+            ZielUrteilText.Text = NetzwerkAuswerter.Gesamturteil(schritte);
+        }
+        catch (Exception ex)
+        {
+            DiagnoseLog.Schreiben(nameof(NetzwerkView) + ".ZielDiagnose", ex.ToString());
+            ZielUrteilText.Text = Loc.T("Prüfung fehlgeschlagen - siehe Diagnose-Log.", "Check failed - see diagnostic log.");
+        }
+        finally
+        {
+            ZielPruefenButton.IsEnabled = true;
+        }
+    }
+
+    /// <summary>
+    /// Erlaubt neben der nackten Adresse ("mail.firma.de") auch eine komplette URL
+    /// ("https://mail.firma.de/login") - genau so, wie man sie sich meist aus dem
+    /// Browser kopiert. DNS/TCP brauchen nur den reinen Hostnamen.
+    /// </summary>
+    private static string ZielAusEingabe(string eingabe)
+    {
+        if (Uri.TryCreate(eingabe, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            return uri.Host;
+
+        var ohneSchema = eingabe.Replace("http://", "", StringComparison.OrdinalIgnoreCase)
+                                 .Replace("https://", "", StringComparison.OrdinalIgnoreCase);
+        var trennerIndex = ohneSchema.IndexOfAny(['/', '\\', '?']);
+        return trennerIndex >= 0 ? ohneSchema[..trennerIndex] : ohneSchema;
+    }
+
+#if PRO_BUILD
+    /// <summary>
+    /// Baut den WLAN-Pro-Bereich zur Laufzeit in ProZusatzBereich ein, statt ihn fest in
+    /// NetzwerkView.xaml zu verdrahten - so bleibt die XAML-Datei fuer Free/Pro identisch,
+    /// genau wie beim USB-Geraete-Modul.
+    /// </summary>
+    private void WlanProBereichAufbauen()
+    {
+        var expander = new Expander
+        {
+            Header = Loc.T("WLAN-Details (Pro)", "Wi-Fi details (Pro)"),
+            Margin = new Thickness(0, 4, 0, 0)
+        };
+
+        var inhalt = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
+
+        inhalt.Children.Add(new TextBlock
+        {
+            Text = Loc.T(
+                "Gespeicherte WLAN-Profile dieses Geräts (Windows-Bordmittel \"netsh wlan\") samt Passwort im " +
+                "Klartext - nur zum eigenen Nachschlagen, z.B. um einem Gast das Passwort zu geben, ohne den " +
+                "Router aufzusuchen. Es werden keine fremden Anmeldedaten (Browser, Mail, andere Programme) " +
+                "gelesen, nur die eigenen gespeicherten WLAN-Netze.",
+                "Wi-Fi profiles saved on this device (Windows built-in \"netsh wlan\") including the password " +
+                "in plain text - just for your own reference, e.g. to give a guest the password without going " +
+                "to the router. No other saved credentials (browser, mail, other apps) are read, only this " +
+                "device's own saved Wi-Fi networks."),
+            Foreground = (Brush)FindResource("TextMutedBrush"),
+            FontSize = 12,
+            Margin = new Thickness(0, 0, 0, 10),
+            TextWrapping = TextWrapping.Wrap
+        });
+
+        _wlanStatusText = new TextBlock { FontSize = 12, Margin = new Thickness(0, 0, 0, 8) };
+        inhalt.Children.Add(_wlanStatusText);
+
+        _wlanPasswortListe = new ItemsControl();
+        var zeileFactory = new FrameworkElementFactory(typeof(DockPanel));
+        zeileFactory.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 0, 0, 6));
+
+        var nameFactory = new FrameworkElementFactory(typeof(TextBlock));
+        nameFactory.SetBinding(TextBlock.TextProperty, new Binding("Name"));
+        nameFactory.SetValue(TextBlock.FontWeightProperty, FontWeights.SemiBold);
+        nameFactory.SetValue(DockPanel.DockProperty, Dock.Top);
+        zeileFactory.AppendChild(nameFactory);
+
+        var passwortZeileFactory = new FrameworkElementFactory(typeof(StackPanel));
+        passwortZeileFactory.SetValue(StackPanel.OrientationProperty, Orientation.Horizontal);
+
+        var anzeigenButtonFactory = new FrameworkElementFactory(typeof(Button));
+        anzeigenButtonFactory.SetValue(ContentControl.ContentProperty, Loc.T("Anzeigen", "Reveal"));
+        anzeigenButtonFactory.SetValue(Button.PaddingProperty, new Thickness(8, 3, 8, 3));
+        anzeigenButtonFactory.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 0, 8, 0));
+        anzeigenButtonFactory.AddHandler(ButtonBase.ClickEvent, (RoutedEventHandler)WlanPasswortAnzeigen_Click);
+        passwortZeileFactory.AppendChild(anzeigenButtonFactory);
+
+        var passwortTextFactory = new FrameworkElementFactory(typeof(TextBlock));
+        passwortTextFactory.SetBinding(TextBlock.TextProperty, new Binding("PasswortAnzeige"));
+        passwortTextFactory.SetValue(TextBlock.FontFamilyProperty, new FontFamily("Consolas"));
+        passwortTextFactory.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+        passwortZeileFactory.AppendChild(passwortTextFactory);
+
+        zeileFactory.AppendChild(passwortZeileFactory);
+        _wlanPasswortListe.ItemTemplate = new DataTemplate { VisualTree = zeileFactory };
+        inhalt.Children.Add(_wlanPasswortListe);
+
+        inhalt.Children.Add(new TextBlock
+        {
+            Text = Loc.T("Kanal-Belegung sichtbarer Netze", "Channel usage of visible networks"),
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 13,
+            Margin = new Thickness(0, 14, 0, 4)
+        });
+        inhalt.Children.Add(new TextBlock
+        {
+            Text = Loc.T(
+                "Zeigt, wie viele Netze in der Umgebung sich denselben Kanal teilen - viele Netze auf einem " +
+                "Kanal können das eigene WLAN ausbremsen. Kein automatischer Kanal-Vorschlag, dafür fehlen zu " +
+                "viele Faktoren (Wände, Nachbarn, Störquellen).",
+                "Shows how many nearby networks share the same channel - many networks on one channel can slow " +
+                "your own Wi-Fi down. No automatic channel recommendation, too many factors are missing for " +
+                "that (walls, neighbors, interference)."),
+            Foreground = (Brush)FindResource("TextMutedBrush"),
+            FontSize = 12,
+            Margin = new Thickness(0, 0, 0, 8),
+            TextWrapping = TextWrapping.Wrap
+        });
+
+        _wlanKanalListe = new ItemsControl();
+        var kanalZeileFactory = new FrameworkElementFactory(typeof(TextBlock));
+        kanalZeileFactory.SetBinding(TextBlock.TextProperty, new Binding("Anzeige"));
+        kanalZeileFactory.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 0, 0, 4));
+        kanalZeileFactory.SetValue(TextBlock.FontSizeProperty, 12.0);
+        _wlanKanalListe.ItemTemplate = new DataTemplate { VisualTree = kanalZeileFactory };
+        inhalt.Children.Add(_wlanKanalListe);
+
+        var neuLadenButton = new Button
+        {
+            Content = Loc.T("Neu einlesen", "Reload"),
+            Padding = new Thickness(12, 6, 12, 6),
+            Margin = new Thickness(0, 12, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Left
+        };
+        neuLadenButton.Click += async (_, _) => await WlanProLadenAsync();
+        inhalt.Children.Add(neuLadenButton);
+
+        expander.Content = inhalt;
+        ProZusatzBereich.Children.Add(expander);
+    }
+
+    private async Task WlanProLadenAsync()
+    {
+        _wlanStatusText.Text = Loc.T("Lese WLAN-Profile ein …", "Reading Wi-Fi profiles…");
+
+        var gespeicherte = await _wlanDienst.GespeicherteNetzeLadenAsync();
+        _wlanPasswortListe.ItemsSource = gespeicherte
+            .Select(n => new WlanPasswortZeile(n.Name, n.Passwort))
+            .ToList();
+
+        var sichtbare = await _wlanDienst.SichtbareNetzeLadenAsync();
+        var kanaele = WlanDetails.KanaeleAuswerten(sichtbare);
+        _wlanKanalListe.ItemsSource = kanaele
+            .Select(k => new WlanKanalZeile
+            {
+                Anzeige = Loc.T(
+                    $"{k.Band ?? "?"}, Kanal {k.Kanal}: {k.AnzahlNetze} Netz(e)",
+                    $"{k.Band ?? "?"}, channel {k.Kanal}: {k.AnzahlNetze} network(s)")
+            })
+            .ToList();
+
+        _wlanStatusText.Text = gespeicherte.Count == 0
+            ? Loc.T("Keine gespeicherten WLAN-Profile auf diesem Gerät gefunden.",
+                    "No saved Wi-Fi profiles found on this device.")
+            : Loc.T($"{gespeicherte.Count} gespeicherte(s) Profil(e), {sichtbare.Count} gerade sichtbare(r) Sendepunkt(e).",
+                    $"{gespeicherte.Count} saved profile(s), {sichtbare.Count} access point(s) currently visible.");
+    }
+
+    private static void WlanPasswortAnzeigen_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: WlanPasswortZeile zeile }) zeile.UmschaltenSichtbarkeit();
+    }
+#endif
 }
 
 public class NetzwerkZeile
@@ -179,3 +406,37 @@ public class NetzwerkZeile
     public string Symbol { get; }
     public Brush AmpelFarbe { get; }
 }
+
+#if PRO_BUILD
+public class WlanPasswortZeile : System.ComponentModel.INotifyPropertyChanged
+{
+    private readonly string? _passwort;
+    private bool _sichtbar;
+
+    public WlanPasswortZeile(string name, string? passwort)
+    {
+        Name = name;
+        _passwort = passwort;
+    }
+
+    public string Name { get; }
+
+    public string PasswortAnzeige => _passwort is null
+        ? Loc.T("(offenes Netz, kein Passwort)", "(open network, no password)")
+        : _sichtbar ? _passwort : "••••••••••";
+
+    public void UmschaltenSichtbarkeit()
+    {
+        if (_passwort is null) return;
+        _sichtbar = !_sichtbar;
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(PasswortAnzeige)));
+    }
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+}
+
+public class WlanKanalZeile
+{
+    public string Anzeige { get; set; } = "";
+}
+#endif

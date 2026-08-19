@@ -27,6 +27,12 @@ public class DiskInfo
     public double? TemperaturCelsius { get; set; }
     public long? PowerOnHours { get; set; }
 
+    // NVMe-spezifisch (Get-StorageReliabilityCounter) - die klassische ATA-SMART-Abfrage oben
+    // deckt NVMe nicht ab (anderer WMI-Provider, s. SmartService.NvmeWerteLadenAsync). Kein
+    // "Reallocated Sectors"-Konzept bei NVMe, dafür ein direkter Abnutzungs-Prozentwert.
+    public double? AbnutzungProzent { get; set; }
+    public long? UnkorrigierbareFehler { get; set; }
+
     public AmpelStatus SmartAmpel { get; set; } = AmpelStatus.Unbekannt;
     public string Erklaerung { get; set; } = "";           // Lösungsvorschlag falls Gelb/Rot
 }

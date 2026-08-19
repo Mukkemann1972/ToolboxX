@@ -11,18 +11,45 @@
             <TextBlock x:Name="InstallierenMeldung" Margin="0,8,0,0" TextWrapping="Wrap" FontSize="12" />
         </StackPanel>
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <ItemsControl x:Name="Liste">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border BorderBrush="#DDD" BorderThickness="0,0,0,1" Padding="0,6">
-                            <StackPanel>
-                                <ContentControl Content="{Binding Titel, Converter={StaticResource AmpelPrefixTextConverter}}" FontWeight="Bold" />
-                                <TextBlock Text="{Binding Hinweis}" TextWrapping="Wrap" Foreground="Gray" />
-                            </StackPanel>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <StackPanel>
+                <ItemsControl x:Name="Liste">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="#DDD" BorderThickness="0,0,0,1" Padding="0,6">
+                                <StackPanel>
+                                    <ContentControl Content="{Binding Titel, Converter={StaticResource AmpelPrefixTextConverter}}" FontWeight="Bold" />
+                                    <TextBlock Text="{Binding Hinweis}" TextWrapping="Wrap" Foreground="Gray" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Verlauf & Warnung: die Liste oben ist eine Momentaufnahme - ob z.B. waehrend
+                     eines Belastungstests die Kuehlung mithaelt, sieht man erst ueber Zeit
+                     (gleiches Muster wie NetzwerkView's dauerhafte Verbindungsueberwachung). -->
+                <Expander x:Name="UeberwachungBereich" Margin="0,10,0,0">
+                    <StackPanel Margin="0,8,0,0">
+                        <TextBlock x:Name="UeberwachungErklaerung" TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,10" />
+                        <DockPanel Margin="0,0,0,10" LastChildFill="False">
+                            <TextBlock x:Name="GrenzwertLabel" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBox x:Name="GrenzwertFeld" Width="60" Padding="4" Text="80" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <Button x:Name="UeberwachungButton" Click="Ueberwachung_Click" Padding="12,6"
+                                HorizontalAlignment="Left" Margin="0,0,0,10" />
+                        <TextBlock x:Name="UeberwachungStatus" TextWrapping="Wrap" FontSize="12" Margin="0,0,0,8" />
+                        <ItemsControl x:Name="UeberschreitungsListe">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" FontSize="12" TextWrapping="Wrap"
+                                               Foreground="{StaticResource DangerBrush}" Margin="0,0,0,4" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Expander>
+            </StackPanel>
         </ScrollViewer>
     </DockPanel>
 </UserControl>

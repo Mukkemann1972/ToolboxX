@@ -11,7 +11,7 @@ namespace PCToolboxCore;
 /// ausgeführt wird - auf dem Pi wirklich testen lässt, ohne je einen Datenträger
 /// anzufassen.
 /// </summary>
-public static class DatentraegerBefehle
+public static partial class DatentraegerBefehle
 {
     /// <summary>
     /// Setzt Text sicher in einfache Anführungszeichen. In PowerShell wird ein
@@ -45,7 +45,39 @@ public static class DatentraegerBefehle
         $"Get-PartitionSupportedSize -DriveLetter {char.ToUpperInvariant(buchstabe)} | " +
         "ConvertTo-Json -Compress";
 
-    /// <summary>Argumente für powershell.exe - ohne Profil, damit nichts dazwischenfunkt.</summary>
-    public static string AlsArgumente(string befehl) =>
-        $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"{befehl.Replace("\"", "\\\"")}\"";
+    /// <summary>
+    /// Löst die häufigste Ursache für "Laufwerk wird verwendet" auf: ein offenes Explorer-Fenster
+    /// auf dem Laufwerk (reicht schon, um Format-Volume/Set-Volume abzuweisen) - wird geschlossen,
+    /// danach das Volume sauber ausgehängt, damit auch von anderen Programmen gehaltene Datei-
+    /// Handles freigegeben werden. Absichtlich mit SilentlyContinue/try-catch: das ist ein
+    /// Best-Effort-Aufräumschritt vor einem automatischen zweiten Versuch, kein eigener,
+    /// fehlschlagfähiger Vorgang - schlägt er fehl, soll trotzdem der eigentliche Befehl danach
+    /// laufen (und ehrlich melden, wenn's dann immer noch nicht klappt).
+    /// </summary>
+    public static string LaufwerkFreigeben(char buchstabe)
+    {
+        var laufwerk = char.ToUpperInvariant(buchstabe);
+        return $"(New-Object -ComObject Shell.Application).Windows() | " +
+               $"Where-Object {{ $_.LocationURL -like 'file:///{laufwerk}:*' }} | ForEach-Object {{ $_.Quit() }}; " +
+               "Start-Sleep -Milliseconds 500; " +
+               $"try {{ Dismount-Volume -DriveLetter {laufwerk} -Confirm:$false -ErrorAction SilentlyContinue }} catch {{}}";
+    }
+
+    /// <summary>
+    /// Argumente für powershell.exe - ohne Profil, damit nichts dazwischenfunkt.
+    ///
+    /// $ErrorActionPreference='Stop' + try/catch + "exit 1" ist kein Stilmittel, sondern eine
+    /// echte Korrektur: PowerShell.exe gibt bei einem Cmdlet-Fehler in einer Pipeline
+    /// (z.B. "New-Partition | Format-Volume" scheitert mitten drin) standardmäßig trotzdem
+    /// Exit-Code 0 zurück - der Aufrufer hier hätte "Erfolg" gemeldet, obwohl nur ein Teil
+    /// der Aktion durchgelaufen ist. Genau das ist bei der ersten echten Partitions-Erstellung
+    /// passiert: eine leere, unpartitionierte Platte statt der erwarteten neuen Partition,
+    /// von der Toolbox aber als Erfolg gemeldet.
+    /// </summary>
+    public static string AlsArgumente(string befehl)
+    {
+        var innererBefehl = befehl.Replace("\"", "\\\"");
+        return "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command " +
+               $"\"$ErrorActionPreference = 'Stop'; try {{ {innererBefehl} }} catch {{ Write-Error $_; exit 1 }}\"";
+    }
 }

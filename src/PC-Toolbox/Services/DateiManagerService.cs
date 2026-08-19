@@ -6,8 +6,20 @@ using PCToolboxCore;
 
 namespace PCToolbox.Services;
 
+/// <summary>
+/// Ein einzelner fehlgeschlagener Eintrag: Klartext-Meldung fürs Anzeigen + das rohe
+/// Exception-HResult (0 wenn nicht durch eine echte Exception verursacht, z.B. "Ziel existiert
+/// schon"). Free ignoriert HResult komplett - Pro nutzt es (s. CommanderView), um bei einer
+/// Sharing-Violation die "Datei entsperren"-Hilfe anzubieten, ohne dass diese Klasse selbst
+/// irgendetwas Pro-Spezifisches wissen muss.
+/// </summary>
+public record DateiAktionFehler(string Pfad, string Meldung, int HResult)
+{
+    public override string ToString() => Meldung;
+}
+
 /// <summary>Ergebnis einer Datei-Aktion, in Klartext für die Statuszeile.</summary>
-public record DateiAktionErgebnis(int Erledigt, List<string> Fehler)
+public record DateiAktionErgebnis(int Erledigt, List<DateiAktionFehler> Fehler)
 {
     public bool Erfolgreich => Fehler.Count == 0;
 }
@@ -132,7 +144,7 @@ public class DateiManagerService
     private static DateiAktionErgebnis Uebertragen(IEnumerable<string> quellen, string zielOrdner, bool verschieben)
     {
         var erledigt = 0;
-        var fehler = new List<string>();
+        var fehler = new List<DateiAktionFehler>();
 
         foreach (var quelle in quellen)
         {
@@ -144,8 +156,8 @@ public class DateiManagerService
 
                 if (istOrdner && DateiHelfer.ZielLiegtInQuelle(quelle, zielOrdner))
                 {
-                    fehler.Add(Loc.T($"{name}: Ein Ordner lässt sich nicht in sich selbst kopieren.",
-                                     $"{name}: A folder cannot be copied into itself."));
+                    fehler.Add(new DateiAktionFehler(quelle, Loc.T($"{name}: Ein Ordner lässt sich nicht in sich selbst kopieren.",
+                                     $"{name}: A folder cannot be copied into itself."), 0));
                     continue;
                 }
 
@@ -167,7 +179,7 @@ public class DateiManagerService
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException)
             {
-                fehler.Add($"{name}: {e.Message}");
+                fehler.Add(new DateiAktionFehler(quelle, $"{name}: {e.Message}", e.HResult));
             }
         }
 
@@ -201,13 +213,14 @@ public class DateiManagerService
     public Task<DateiAktionErgebnis> InDenPapierkorbAsync(IEnumerable<string> pfade) => Task.Run(() =>
     {
         var erledigt = 0;
-        var fehler = new List<string>();
+        var fehler = new List<DateiAktionFehler>();
 
         foreach (var pfad in pfade)
         {
             if (RecycleBinDeleter.InDenPapierkorbVerschieben(pfad)) erledigt++;
-            else fehler.Add(Loc.T($"{Path.GetFileName(pfad.TrimEnd('\\'))}: konnte nicht in den Papierkorb verschoben werden.",
-                                  $"{Path.GetFileName(pfad.TrimEnd('\\'))}: could not be moved to the recycle bin."));
+            else fehler.Add(new DateiAktionFehler(pfad,
+                Loc.T($"{Path.GetFileName(pfad.TrimEnd('\\'))}: konnte nicht in den Papierkorb verschoben werden.",
+                      $"{Path.GetFileName(pfad.TrimEnd('\\'))}: could not be moved to the recycle bin."), 0));
         }
 
         return new DateiAktionErgebnis(erledigt, fehler);

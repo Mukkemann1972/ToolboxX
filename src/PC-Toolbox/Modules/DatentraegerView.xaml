@@ -74,6 +74,8 @@
                 <TextBlock x:Name="GeisterText" TextWrapping="Wrap" FontSize="12" Margin="0,8,0,0"
                            Foreground="{StaticResource TextMutedBrush}" />
             </Expander>
+
+            <StackPanel x:Name="ProZusatzBereich" Margin="0,20,0,0" />
         </StackPanel>
     </ScrollViewer>
 </UserControl>

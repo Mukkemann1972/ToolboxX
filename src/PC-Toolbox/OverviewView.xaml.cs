@@ -40,6 +40,9 @@ public partial class OverviewView : UserControl
         TitelDienste.Text = Loc.T("Dienste", "Services");
         BeschrDienste.Text = Loc.T("Hintergrund entlasten", "Lighten the background load");
 
+        TitelAkku.Text = Loc.T("Akku-Gesundheit", "Battery Health");
+        BeschrAkku.Text = Loc.T("Kapazität vs. Werkszustand", "Capacity vs. factory state");
+
         TitelDatentraeger.Text = Loc.T("Datenträger", "Disk Manager");
         BeschrDatentraeger.Text = Loc.T("Formatieren & Größe ändern", "Format & resize");
 
@@ -58,6 +61,9 @@ public partial class OverviewView : UserControl
         TitelUninstaller.Text = Loc.T("Uninstaller", "Uninstaller");
         BeschrUninstaller.Text = Loc.T("Restlos deinstallieren", "Uninstall completely");
 
+        TitelDatenrettung.Text = Loc.T("Datenrettung", "Data Recovery");
+        BeschrDatenrettung.Text = Loc.T("Gelöschte Dateien finden", "Find deleted files");
+
         TitelBios.Text = Loc.T("BIOS-Kompendium", "BIOS Guide");
         BeschrBios.Text = Loc.T("Einstellungen erklärt", "Settings explained");
 
@@ -70,6 +76,9 @@ public partial class OverviewView : UserControl
         TitelRegistry.Text = Loc.T("Registry", "Registry");
         BeschrRegistry.Text = Loc.T("Wichtige Stellen erklärt", "Key locations explained");
 
+        TitelLegacyWerkzeuge.Text = Loc.T("Windows-Bordmittel", "Windows Built-in Tools");
+        BeschrLegacyWerkzeuge.Text = Loc.T("Versteckte Systemwerkzeuge direkt öffnen", "Open hidden system tools directly");
+
         TitelDrucker.Text = Loc.T("Drucker", "Printers");
         BeschrDrucker.Text = Loc.T("Status statt kryptischem Symbol", "Status instead of a cryptic icon");
 
@@ -80,6 +89,9 @@ public partial class OverviewView : UserControl
 #else
         BeschrUsb.Text = Loc.T("Angeschlossen & Status", "Connected & status");
 #endif
+
+        TitelMaus.Text = Loc.T("Maus-Diagnose", "Mouse Diagnostics");
+        BeschrMaus.Text = Loc.T("Status & Brücke zu MausWerk", "Status & bridge to MausWerk");
 
 #if PRO_BUILD
         FusszeileText.Text = Loc.T("Erschaffen statt konsumieren · Toolbox X Pro",
@@ -103,32 +115,86 @@ public partial class OverviewView : UserControl
     /// die XAML-Datei fuer Free/Pro identisch bleibt.</summary>
     private void ProKachelnAufbauen()
     {
-        var ordnerGroesseKachel = new Button
+        KachelnPanel.Children.Add(ProKachel("📊", Loc.T("Ordnergröße", "Folder Size"),
+            Loc.T("Wer frisst den Speicherplatz?", "Who's eating your disk space?"), "OrdnerGroesse"));
+
+        KachelnPanel.Children.Add(ProKachel("📄", Loc.T("Testbericht", "Test report"),
+            Loc.T("Laufwerke, Temperatur & Treiber als PDF", "Drives, temperature & drivers as PDF"), "Testbericht"));
+
+        KachelnPanel.Children.Add(ProKachel("🔄", Loc.T("Backup & Sync", "Backup & Sync"),
+            Loc.T("Ordner abgleichen mit Vorschau", "Sync folders with preview"), "BackupSync"));
+
+        KachelnPanel.Children.Add(ProKachel("💽", Loc.T("Festplatten-Klonen", "Disk Cloning"),
+            Loc.T("Ganze Platte 1:1 kopieren", "Copy an entire disk 1:1"), "FestplattenKlon"));
+
+        KachelnPanel.Children.Add(ProKachel("🔥", Loc.T("Datenvernichter", "Data Wipe"),
+            Loc.T("Platte revisionssicher löschen", "Securely wipe a disk"), "Datenvernichter"));
+
+        KachelnPanel.Children.Add(ProKachel("🩹", Loc.T("Partition-Reparatur", "Partition Repair"),
+            Loc.T("Bootsektor aus Sicherungskopie reparieren", "Repair boot sector from backup copy"), "PartitionReparatur"));
+
+        KachelnPanel.Children.Add(ProKachel("🖼️", Loc.T("Image-Deploy-Tool", "Image Deploy Tool"),
+            Loc.T("Windows-Abbild erfassen & auf SSDs verteilen", "Capture a Windows image & deploy to SSDs"), "ImageDeploy"));
+
+        KachelnPanel.Children.Add(ProKachel("💿", Loc.T("Installations-Assistent", "Setup Assistant"),
+            Loc.T("Antwortdatei für unbeaufsichtigte Windows-Installation", "Answer file for unattended Windows setup"), "InstallationsAssistent"));
+
+        KachelnPanel.Children.Add(ProKachel("🧩", Loc.T("Boardview-Betrachter", "Boardview Viewer"),
+            Loc.T("Netz/Bauteil auf der Platine finden", "Find a net/part on the board"), "Boardview"));
+
+        KachelnPanel.Children.Add(ProKachel("🧰", Loc.T("Treiber-Backup", "Driver Backup"),
+            Loc.T("Treiber sichern & nach Neuinstallation wiederherstellen", "Back up drivers & restore after a reinstall"), "TreiberBackup"));
+
+        KachelnPanel.Children.Add(ProKachel("🧹", Loc.T("Datenreste-Scanner", "Leftover Scanner"),
+            Loc.T("Reste alter Deinstallationen finden", "Find leftovers from old uninstalls"), "Datenreste"));
+
+        KachelnPanel.Children.Add(ProKachel("📋", Loc.T("Install-Tracker", "Install Tracker"),
+            Loc.T("Vorher/Nachher-Vergleich einer Installation", "Before/after comparison of an install"), "InstallTracker"));
+
+        KachelnPanel.Children.Add(ProKachel("🩹", Loc.T("App-Sicherheits-Check", "App Security Check"),
+            Loc.T("Installierte Programme gegen bekannte Schwachstellen prüfen", "Check installed programs against known vulnerabilities"), "AppVulnerability"));
+
+        KachelnPanel.Children.Add(ProKachel("🩺", Loc.T("HDD-Health-Monitor", "HDD Health Monitor"),
+            Loc.T("SMART-Trend über Zeit - bevor es knallt", "SMART trend over time - before it fails"), "HddHealthMonitor"));
+
+        KachelnPanel.Children.Add(ProKachel("🧬", Loc.T("Duplikat-Finder", "Duplicate Finder"),
+            Loc.T("Inhaltsgleiche Dateien finden und aufräumen", "Find and clean up files with identical content"), "DuplikatFinder"));
+
+        KachelnPanel.Children.Add(ProKachel("📦", Loc.T("Software-Depot", "Software Depot"),
+            Loc.T("Standardsoftware gesammelt installieren", "Install standard software in one batch"), "SoftwareDepot"));
+
+        KachelnPanel.Children.Add(ProKachel("🛡️", Loc.T("Update-Profil", "Update Profile"),
+            Loc.T("Updates abgestuft verzögern, nie deaktivieren", "Defer updates in stages, never disable"), "WindowsUpdateProfil"));
+    }
+
+    private Button ProKachel(string symbol, string titel, string beschreibung, string modulTag)
+    {
+        var kachel = new Button
         {
             Style = (Style)FindResource("TileCardStyle"),
             Width = 190,
             Height = 120,
             Margin = new Thickness(0, 0, 14, 14),
-            Tag = "OrdnerGroesse"
+            Tag = modulTag
         };
-        ordnerGroesseKachel.Click += Kachel_Click;
+        kachel.Click += Kachel_Click;
 
         var inhalt = new StackPanel();
-        inhalt.Children.Add(new TextBlock { Text = "📊", FontSize = 26 });
+        inhalt.Children.Add(new TextBlock { Text = symbol, FontSize = 26 });
         inhalt.Children.Add(new TextBlock
         {
-            Text = Loc.T("Ordnergröße", "Folder Size"),
+            Text = titel,
             FontSize = 16, FontWeight = FontWeights.SemiBold,
             FontFamily = (FontFamily)FindResource("BodyFontFamily"), Margin = new Thickness(0, 8, 0, 2)
         });
         inhalt.Children.Add(new TextBlock
         {
-            Text = Loc.T("Wer frisst den Speicherplatz?", "Who's eating your disk space?"),
+            Text = beschreibung,
             FontSize = 11, Foreground = (Brush)FindResource("TextMutedBrush"), TextWrapping = TextWrapping.Wrap
         });
-        ordnerGroesseKachel.Content = inhalt;
+        kachel.Content = inhalt;
 
-        KachelnPanel.Children.Add(ordnerGroesseKachel);
+        return kachel;
     }
 #endif
 }

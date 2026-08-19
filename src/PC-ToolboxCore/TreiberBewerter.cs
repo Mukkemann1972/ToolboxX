@@ -16,6 +16,15 @@ public class GeraetBefund
 
     public string? TreiberVersion { get; set; }
     public DateTime? TreiberDatum { get; set; }
+
+    /// <summary>Dateiname des Treibers selbst (z.B. "nvlddmkm.sys") - Grundlage für den
+    /// Abgleich mit dem in einem Absturz-Minidump gefundenen Verursacher-Modul.</summary>
+    public string? TreiberDateiname { get; set; }
+
+    /// <summary>Windows-Geräte-ID (PNPDeviceID, z.B. "HID\VID_04D9&amp;PID_8008\...") - Grundlage
+    /// für den VID/PID-Abgleich mit einem bekannten Gerät (z.B. die Maus-Diagnose-Brücke zu
+    /// MausWerk).</summary>
+    public string? GeraeteId { get; set; }
 }
 
 /// <summary>Fertige Einschätzung eines Geräts für die Anzeige.</summary>

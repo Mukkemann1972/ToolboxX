@@ -15,6 +15,9 @@ namespace PCToolbox.Modules;
 public partial class UsbGeraeteView : UserControl
 {
     private readonly UsbGeraeteService _dienst = new();
+    private readonly UsbAenderungsWatcher _aenderungsWatcher = new();
+    private readonly List<AenderungZeile> _aenderungen = [];
+    private const int MaxAenderungenAnzeigen = 200;
 
 #if PRO_BUILD
     private readonly UsbGeraeteProService _proDienst = new();
@@ -24,6 +27,11 @@ public partial class UsbGeraeteView : UserControl
     private ItemsControl _buchstabenListe = null!;
     private TextBlock _geisterStatusText = null!;
     private ListView _geisterListe = null!;
+
+    private CheckBox _schwaerzungBox = null!;
+    private ComboBox _schwaerzungMonitorBox = null!;
+    private TextBlock _schwaerzungStatusText = null!;
+    private bool _schwaerzungLaedt;
 #endif
 
     public UsbGeraeteView()
@@ -43,6 +51,18 @@ public partial class UsbGeraeteView : UserControl
         EnergiesparTitel.Text = Loc.T("ℹ️ \"Gerät verschwindet manchmal von selbst\"?", "ℹ️ \"Device sometimes disappears on its own\"?");
         EnergiesparText.Text = UsbErklaerungen.EnergiesparmodusVerdacht();
         NeuLadenButton.Content = Loc.T("Neu einlesen", "Reload");
+
+        AenderungTitel.Text = Loc.T("Live-Überwachung: An-/Abstecken beobachten", "Live monitoring: watch plug/unplug events");
+        AenderungErklaerung.Text = Loc.T(
+            "Die Liste oben ist eine Momentaufnahme - ein Gerät, das kurz auftaucht und gleich wieder " +
+            "verschwindet (oder nie einen benannten Eintrag bekommt), wäre darin nicht zu sehen. Hier wird " +
+            "jedes An- und Abstecken sofort protokolliert, solange dieses Modul offen bleibt - auch wenn " +
+            "Windows dem Gerät keinen Namen zuordnen kann, wird zumindest seine technische Kennung angezeigt.",
+            "The list above is a snapshot - a device that briefly appears and disappears again (or never " +
+            "gets a named entry) wouldn't show up there. Here every plug/unplug is logged immediately for " +
+            "as long as this module stays open - even if Windows can't assign the device a name, its " +
+            "technical ID is shown instead.");
+        AenderungButton.Content = Loc.T("Überwachung starten", "Start monitoring");
 
 #if PRO_BUILD
         ProZusatzBereichAufbauen();
@@ -68,6 +88,50 @@ public partial class UsbGeraeteView : UserControl
                     MessageBoxImage.Error);
             }
         };
+
+        Unloaded += (_, _) => _aenderungsWatcher.Stoppen();
+    }
+
+    private void Aenderung_Click(object sender, RoutedEventArgs e)
+    {
+        if (_aenderungsWatcher.LaeuftGerade)
+        {
+            _aenderungsWatcher.Stoppen();
+            AenderungButton.Content = Loc.T("Überwachung starten", "Start monitoring");
+            return;
+        }
+
+        _aenderungen.Clear();
+        AenderungListe.ItemsSource = null;
+        AenderungButton.Content = Loc.T("Überwachung stoppen", "Stop monitoring");
+        AenderungStatus.Text = Loc.T("Läuft - noch keine Änderung erkannt.", "Running - no change detected yet.");
+
+        _aenderungsWatcher.Starten(
+            aenderung => Dispatcher.Invoke(() => AenderungVerarbeiten(aenderung)),
+            fehler => Dispatcher.Invoke(() => AenderungStatus.Text = Loc.T(
+                $"Überwachung konnte nicht gestartet werden: {fehler}",
+                $"Monitoring could not be started: {fehler}")));
+    }
+
+    private void AenderungVerarbeiten(GeraeteAenderung aenderung)
+    {
+        _aenderungen.Insert(0, new AenderungZeile
+        {
+            ZeitAnzeige = aenderung.Zeitpunkt.ToString("HH:mm:ss"),
+            ArtAnzeige = UsbGeraeteAenderungen.ArtText(aenderung.Art),
+            ArtFarbe = aenderung.Art == GeraeteAenderungsArt.Erschienen
+                ? (Brush)FindResource("OkBrush")
+                : (Brush)FindResource("DangerBrush"),
+            Anzeige = aenderung.Anzeige
+        });
+
+        if (_aenderungen.Count > MaxAenderungenAnzeigen)
+            _aenderungen.RemoveRange(MaxAenderungenAnzeigen, _aenderungen.Count - MaxAenderungenAnzeigen);
+
+        AenderungListe.ItemsSource = null;
+        AenderungListe.ItemsSource = _aenderungen;
+
+        AenderungStatus.Text = Loc.T($"{_aenderungen.Count} Änderung(en) seit dem Start.", $"{_aenderungen.Count} change(s) since starting.");
     }
 
     private async void NeuLaden_Click(object sender, RoutedEventArgs e)
@@ -233,6 +297,101 @@ public partial class UsbGeraeteView : UserControl
             e.Handled = true;
         };
         ProZusatzBereich.Children.Add(_geisterListe);
+
+        SchwaerzungBereichAufbauen();
+    }
+
+    /// <summary>
+    /// Alex' Werkstatt-Wunsch (19.08.2026): manche USB-/DisplayLink-Zweitbildschirme folgen
+    /// Windows' Ruhemodus nicht mit und bleiben als einzige hell, während die echten Monitore
+    /// schon schwarz sind. Legt dafür ein schwarzes Deckfenster über den gewählten Bildschirm,
+    /// sobald Windows "Anzeige aus" meldet (s. Services/Pro/MonitorAutoSchwaerzungWaechter) -
+    /// verschwindet genauso sofort wieder, sobald Maus/Tastatur die Monitore aufweckt.
+    /// </summary>
+    private void SchwaerzungBereichAufbauen()
+    {
+        var bereich = new StackPanel { Margin = new Thickness(0, 14, 0, 0) };
+
+        bereich.Children.Add(new TextBlock
+        {
+            Text = Loc.T("Zweitbildschirm bleibt hell? (Pro)", "Second screen stays lit? (Pro)"),
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 14,
+            Margin = new Thickness(0, 0, 0, 4)
+        });
+        bereich.Children.Add(new TextBlock
+        {
+            Text = Loc.T(
+                "Manche USB-Bildschirme (z.B. DisplayLink) gehen nicht von selbst in den Ruhemodus mit, wenn die " +
+                "übrigen Monitore schwarz werden - sie leuchten dann als einzige weiter. Hier lässt sich ein " +
+                "gewählter Bildschirm automatisch schwarz legen, sobald Windows die Anzeige abschaltet. Kein " +
+                "Eingriff an der Hardware selbst, nur ein schwarzes Fenster darüber - sobald Maus oder Tastatur " +
+                "die Monitore wieder aufweckt, verschwindet es sofort von selbst.",
+                "Some USB screens (e.g. DisplayLink) don't go to sleep along with the other monitors - they keep " +
+                "shining as the only one left on. Here a chosen screen can be automatically blacked out as soon " +
+                "as Windows turns the display off. No change to the hardware itself, just a black window on top " +
+                "- as soon as mouse or keyboard wakes the monitors up again, it disappears immediately on its own."),
+            Foreground = (Brush)FindResource("TextMutedBrush"),
+            FontSize = 12,
+            Margin = new Thickness(0, 0, 0, 10),
+            TextWrapping = TextWrapping.Wrap
+        });
+
+        bereich.Children.Add(new TextBlock { Text = Loc.T("Welcher Bildschirm?", "Which screen?"), FontSize = 12, Margin = new Thickness(0, 0, 0, 4) });
+        _schwaerzungMonitorBox = new ComboBox { Margin = new Thickness(0, 0, 0, 8) };
+        _schwaerzungMonitorBox.SelectionChanged += Schwaerzung_Geaendert;
+        bereich.Children.Add(_schwaerzungMonitorBox);
+
+        _schwaerzungBox = new CheckBox { Content = Loc.T("Automatisch schwärzen, wenn die Monitore in den Ruhemodus gehen", "Automatically black out when the monitors go to sleep") };
+        _schwaerzungBox.Checked += Schwaerzung_Geaendert;
+        _schwaerzungBox.Unchecked += Schwaerzung_Geaendert;
+        bereich.Children.Add(_schwaerzungBox);
+
+        _schwaerzungStatusText = new TextBlock { FontSize = 12, Foreground = (Brush)FindResource("TextMutedBrush"), Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap };
+        bereich.Children.Add(_schwaerzungStatusText);
+
+        ProZusatzBereich.Children.Add(bereich);
+        SchwaerzungLaden();
+    }
+
+    private void SchwaerzungLaden()
+    {
+        _schwaerzungLaedt = true;
+        try
+        {
+            var monitore = MonitorAutoSchwaerzungWaechter.VerfuegbareMonitore();
+            _schwaerzungMonitorBox.ItemsSource = monitore;
+            _schwaerzungMonitorBox.DisplayMemberPath = nameof(MonitorAutoSchwaerzungWaechter.MonitorEintrag.Anzeige);
+
+            var einstellungen = MonitorAutoSchwaerzungWaechter.Instanz.AktuelleEinstellungen;
+            var vorausgewaehlt = monitore.FirstOrDefault(m => m.GeraeteName == einstellungen.ZielGeraeteName);
+            _schwaerzungMonitorBox.SelectedItem = vorausgewaehlt ?? monitore.FirstOrDefault();
+            _schwaerzungBox.IsChecked = einstellungen.Aktiv;
+
+            _schwaerzungStatusText.Text = monitore.Count <= 1
+                ? Loc.T("Nur ein Bildschirm erkannt - für diese Funktion braucht es mindestens zwei.",
+                        "Only one screen detected - this feature needs at least two.")
+                : "";
+        }
+        finally
+        {
+            _schwaerzungLaedt = false;
+        }
+    }
+
+    private void Schwaerzung_Geaendert(object sender, RoutedEventArgs e)
+    {
+        if (_schwaerzungLaedt) return;
+
+        var ziel = (_schwaerzungMonitorBox.SelectedItem as MonitorAutoSchwaerzungWaechter.MonitorEintrag)?.GeraeteName;
+        var aktiv = _schwaerzungBox.IsChecked == true;
+
+        MonitorAutoSchwaerzungWaechter.Instanz.EinstellungAendern(aktiv, ziel);
+
+        _schwaerzungStatusText.Text = aktiv
+            ? Loc.T("Aktiv - wird geschwärzt, sobald die Monitore in den Ruhemodus gehen.",
+                    "Active - will be blacked out once the monitors go to sleep.")
+            : Loc.T("Deaktiviert.", "Disabled.");
     }
 
     private async Task BuchstabenLadenAsync()
@@ -416,6 +575,14 @@ public class BuchstabenZeile
     public string AufloesenText { get; set; } = "";
 }
 #endif
+
+public class AenderungZeile
+{
+    public string ZeitAnzeige { get; set; } = "";
+    public string ArtAnzeige { get; set; } = "";
+    public Brush ArtFarbe { get; set; } = Brushes.Gray;
+    public string Anzeige { get; set; } = "";
+}
 
 public class UsbZeile
 {

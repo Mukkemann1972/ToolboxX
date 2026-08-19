@@ -91,7 +91,7 @@ Die Toolbox wird so gebaut, dass sie später **physische Adapter** ansteuern kan
 - **Platine mit ESP32/Arduino** → für Low-Level-Tests (z.B. Maus-Signal-Analyse)
 
 Der Ordner `hardware/` wächst parallel zur Software – Dokumentation und Firmware.
-Siehe [HARDWARE_VISION.md](HARDWARE_VISION.md) für Details.
+Noch reine Vision, nicht Teil dieses Repositories.
 
 ## Build & Deployment
 

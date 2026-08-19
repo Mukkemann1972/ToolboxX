@@ -12,7 +12,7 @@
     <!-- Logo (26.07.2026, von Alex beigesteuert): quadratisch zugeschnittenes
          X-Zeichen als Programm-Icon, mehrere Groessen von 16 bis 256 px -->
     <ApplicationIcon>Assets\ToolboxX.ico</ApplicationIcon>
-    <Version>0.6.4</Version>
+    <Version>0.6.23</Version>
     <Title>Toolbox X</Title>
     <Product>Toolbox X</Product>
     <Description>Toolbox X – Zukunfts-Toolsammlung fürs Windows-System. Kostenlos, Open Source, kein Abo.</Description>
@@ -22,6 +22,10 @@
          => Free, alles unter Modules/Pro + Services/Pro fehlt im Ergebnis komplett. Mit
          `-p:ProBuild=true` => Pro-Build, dieselben Dateien werden mitkompiliert. -->
     <DefineConstants Condition="'$(ProBuild)'=='true'">$(DefineConstants);PRO_BUILD</DefineConstants>
+    <!-- Nur im Pro-Build noetig: EigenerVramTestService haelt rohe Vulkan-Handles/Pointer
+         (Silk.NET.Vulkan ist ein direktes P/Invoke-Binding, kein Managed-Wrapper). Free
+         bleibt unangetastet, da die Datei dort ohnehin nicht mitkompiliert wird. -->
+    <AllowUnsafeBlocks Condition="'$(ProBuild)'=='true'">true</AllowUnsafeBlocks>
     <!-- AssemblyName bewusst NICHT je Build-Variante unterschiedlich: Themes/ToolboxXTheme*.xaml
          werden zur Laufzeit als Text geparst (nicht als BAML kompiliert, s. Kommentar weiter
          unten) und enthalten darin "assembly=PC-Toolbox" fest verdrahtet für den
@@ -64,6 +68,41 @@
          älteren WinRing0 (Missbrauchs-/AV-Historie) - Treiber selbst liegt separat in
          vendor/pawnio/, wird NICHT automatisch installiert (s. HardwareMonitorService). -->
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(ProBuild)'=='true'">
+    <!-- PDF-Erzeugung fuer den Pro-Testbericht (PdfTestberichtService) - MIT-lizenziert,
+         nur im Pro-Build referenziert, damit Free nicht mal die DLL mitschleppt. -->
+    <PackageReference Include="PdfSharp" Version="6.1.1" />
+    <!-- Eigener Vulkan-Compute-VRAM-Test (EigenerVramTestService) - loest die vendorierte
+         memtest_vulkan.exe (Free) im Pro-Build durch selbst geschriebene Compute-Shader ab
+         (s. GPU_DIAGNOSE_VISION.md, "Alleinstellungsmerkmal"). MIT-lizenziert (Ultz/Silk.NET-
+         Team). Silk.NET.Vulkan/.Core sind reine P/Invoke-Bindings der offiziellen Vulkan-API
+         (keine eigene Engine-Logik "geklaut"). Silk.NET.Shaderc(.Native) kompiliert unsere
+         GLSL-Shader zur LAUFZEIT zu SPIR-V, damit weder Alex noch Nutzer ein Vulkan-SDK
+         installieren muessen - nur vulkan-1.dll wird gebraucht, die mit jedem halbwegs
+         aktuellen Grafiktreiber sowieso schon da ist (genau wie bei memtest_vulkan). -->
+    <PackageReference Include="Silk.NET.Core" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.Vulkan" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.Shaderc" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.Shaderc.Native" Version="2.23.0" />
+    <!-- Eigene RAM-Disk (EigeneRamDiskService) - loest ImDisk (Free) im Pro-Build durch eine
+         komplett selbst geschriebene Speicherlogik ab (PCToolboxCore/Pro/EigeneRamDisk.cs).
+         DokanNet ist nur die duenne Andock-Schicht ans Windows-Dateisystem (IDokanOperations),
+         MIT-lizenziert, gepflegt von LTRData (selber Autor wie ImDisk). Der eigentliche
+         Dokan-TREIBER liegt separat in vendor/dokan/, wird NICHT automatisch installiert
+         (s. EigeneRamDiskService) - bewusst Dokan statt WinFsp: WinFsp verlangt fuer eine
+         bezahlte Closed-Source-Pro-Version eine kommerzielle Lizenz (2.400 USD/3 Jahre),
+         Dokan ist LGPL-3.0 und dafuer kostenlos nutzbar (s. vendor/dokan/HERKUNFT.txt). -->
+    <PackageReference Include="DokanNet" Version="2.3.0.3" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(ProBuild)'=='true'">
+    <!-- GLSL-Quelltext der eigenen VRAM-Test-Shader, als Text eingebettet (nicht vorkompiliert -
+         Silk.NET.Shaderc kompiliert sie beim Testlauf zu SPIR-V, s. EigenerVramTestService).
+         Bewusst als lesbare .comp-Dateien statt als String-Konstante im C#-Code. -->
+    <EmbeddedResource Include="Services\Pro\Shaders\EigenerVramTestWrite.comp" />
+    <EmbeddedResource Include="Services\Pro\Shaders\EigenerVramTestVerify.comp" />
   </ItemGroup>
 
   <ItemGroup>
@@ -183,5 +222,6 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
 
 </Project>

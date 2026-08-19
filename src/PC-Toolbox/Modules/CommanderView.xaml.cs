@@ -7,12 +7,19 @@ using System.Windows.Media;
 using PCToolbox.Models;
 using PCToolbox.Services;
 using PCToolboxCore;
+#if PRO_BUILD
+using PCToolbox.Services.Pro;
+using PCToolboxCore.Pro;
+#endif
 
 namespace PCToolbox.Modules;
 
 public partial class CommanderView : UserControl
 {
     private readonly DateiManagerService _dienst = new();
+#if PRO_BUILD
+    private readonly DateiSperreService _dateiSperreService = new();
+#endif
 
     private Seite _links = null!;
     private Seite _rechts = null!;
@@ -402,9 +409,82 @@ public partial class CommanderView : UserControl
                         $"{ergebnis.Erledigt} {wort}, {ergebnis.Fehler.Count} not: {string.Join(" | ", ergebnis.Fehler.Take(3))}"),
             ergebnis.Erfolgreich);
 
+#if PRO_BUILD
+        if (!ergebnis.Erfolgreich)
+            await GesperrteDateienEntsperrenUndErneutVersuchenAsync(ergebnis.Fehler, ziel, verschieben);
+#endif
+
         await WechselnAsync(_links, _links.Pfad);
         await WechselnAsync(_rechts, _rechts.Pfad);
     }
+
+#if PRO_BUILD
+    /// <summary>
+    /// Pro-only: fragt für jeden Fehleintrag, der laut HResult eine Sharing-Violation war
+    /// (Free-Anwender sehen dieselbe rohe Fehlermeldung, aber keine Möglichkeit, den
+    /// blockierenden Prozess zu schließen - genau die "Pro darf mehr" Grenze), welche Prozesse
+    /// die jeweilige Datei blockieren, und bietet an, sie zu schließen und die EINE betroffene
+    /// Datei erneut zu übertragen. Kritische Systemprozesse (DateiSperreInfo.IstKritisch) werden
+    /// nie zum Schließen angeboten, auch in Pro nicht.
+    /// </summary>
+    private async Task GesperrteDateienEntsperrenUndErneutVersuchenAsync(
+        IReadOnlyList<DateiAktionFehler> fehlerListe, string zielOrdner, bool verschieben)
+    {
+        foreach (var fehler in fehlerListe)
+        {
+            if (!SharingViolationErkennung.IstSharingViolation(fehler.HResult)) continue;
+
+            var blockierer = _dateiSperreService.BlockierendeProzesseErmitteln(fehler.Pfad);
+            if (blockierer.Count == 0) continue; // Sperre ist inzwischen von selbst weg
+
+            var schliessbar = blockierer.Where(b => !b.IstKritisch).ToList();
+            var name = Path.GetFileName(fehler.Pfad.TrimEnd('\\'));
+
+            if (schliessbar.Count == 0)
+            {
+                MessageBox.Show(
+                    Loc.T(
+                        $"„{name}\" wird von einer kritischen Systemkomponente blockiert " +
+                        $"({string.Join(", ", blockierer.Select(b => b.ProzessName))}) - die kann aus " +
+                        "Sicherheitsgründen nicht geschlossen werden, auch nicht in Pro.",
+                        $"\"{name}\" is blocked by a critical system component " +
+                        $"({string.Join(", ", blockierer.Select(b => b.ProzessName))}) - it cannot be closed " +
+                        "for safety reasons, not even in Pro."),
+                    Loc.T("Datei entsperren (Pro)", "Unlock file (Pro)"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                continue;
+            }
+
+            var programmListe = string.Join("\n", schliessbar.Select(b => $"  • {b.ProzessName} (PID {b.ProzessId})"));
+            var antwort = MessageBox.Show(
+                Loc.T(
+                    $"„{name}\" ist gesperrt, weil folgendes Programm sie gerade offen hält:\n\n{programmListe}\n\n" +
+                    "Jetzt schließen und die Übertragung erneut versuchen? Ungespeicherte Änderungen in " +
+                    "diesem Programm gehen dabei verloren.",
+                    $"\"{name}\" is locked because the following program currently has it open:\n\n{programmListe}\n\n" +
+                    "Close it now and retry the transfer? Unsaved changes in that program will be lost."),
+                Loc.T("Datei entsperren (Pro)", "Unlock file (Pro)"), MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+
+            if (antwort != MessageBoxResult.Yes) continue;
+
+            var (_, schliessenFehler) = _dateiSperreService.ProzesseSchliessen(schliessbar.Select(b => b.ProzessId));
+            if (schliessenFehler.Count > 0)
+            {
+                Melden(string.Join(" | ", schliessenFehler), false);
+                continue;
+            }
+
+            var wiederholungsErgebnis = verschieben
+                ? await _dienst.VerschiebenAsync([fehler.Pfad], zielOrdner)
+                : await _dienst.KopierenAsync([fehler.Pfad], zielOrdner);
+
+            Melden(wiederholungsErgebnis.Erfolgreich
+                    ? Loc.T($"„{name}\" nach Entsperren erfolgreich übertragen.", $"\"{name}\" transferred successfully after unlocking.")
+                    : Loc.T($"„{name}\" auch nach Entsperren nicht übertragbar: {wiederholungsErgebnis.Fehler.FirstOrDefault()}",
+                            $"\"{name}\" still could not be transferred after unlocking: {wiederholungsErgebnis.Fehler.FirstOrDefault()}"),
+                wiederholungsErgebnis.Erfolgreich);
+        }
+    }
+#endif
 
     private async void Loeschen_Click(object sender, RoutedEventArgs e) => await LoeschenAsync();
 
