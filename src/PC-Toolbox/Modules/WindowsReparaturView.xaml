@@ -119,6 +119,19 @@
                 </StackPanel>
             </Expander>
 
+            <!-- Windows-Update-Reparatur (Cloud) - naechster Schritt, wenn DISM+SFC oben nicht
+                 reichen, aber vor einer echten Neuinstallation ueber Installationsmedium.
+                 Free: oeffnet nur die offizielle Windows-Einstellungsseite, kein eigener
+                 Reparaturlauf. -->
+            <Expander x:Name="UpdateReparaturBereich" Margin="0,18,0,0">
+                <StackPanel Margin="0,8,0,0">
+                    <TextBlock x:Name="UpdateReparaturErklaerung" TextWrapping="Wrap" FontSize="12"
+                               Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,10" />
+                    <Button x:Name="UpdateReparaturOeffnenButton" Click="UpdateReparaturOeffnen_Click"
+                            Padding="14,7" HorizontalAlignment="Left" />
+                </StackPanel>
+            </Expander>
+
             <!-- Nur im Pro-Build befuellt: Komponentenspeicher-Analyse/-Bereinigung
                  (s. KomponentenspeicherService) - gleiches Laufzeit-Platzhalter-Muster wie
                  GpuDiagnoseView/RamDiskView. -->

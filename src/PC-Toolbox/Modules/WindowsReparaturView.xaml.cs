@@ -68,6 +68,26 @@ public partial class WindowsReparaturView : UserControl
 
         UpdateVerlaufBereich.Header = Loc.T("Windows-Update-Verlauf (letzte 15)", "Windows update history (last 15)");
 
+        UpdateReparaturBereich.Header = Loc.T(
+            "Wenn das nicht reicht: Windows-Update-Reparatur (Cloud)",
+            "If that's not enough: Windows Update repair (cloud)");
+        UpdateReparaturErklaerung.Text = Loc.T(
+            "Der nächste Schritt, bevor eine echte Neuinstallation über Installationsmedium nötig " +
+            "wird: Windows lädt seine Systemdateien komplett frisch über Windows Update neu, " +
+            "behält dabei aber deine Dateien, Programme und Einstellungen. Braucht eine " +
+            "Internetverbindung und dauert deutlich länger als DISM/sfc oben. Toolbox X öffnet " +
+            "nur die offizielle Windows-Seite dafür - ob der Button „Probleme mittels Windows " +
+            "Update beheben“ dort erscheint, entscheidet Windows selbst (abhängig von Version und " +
+            "Systemzustand), das können wir nicht erzwingen.",
+            "The next step before a real reinstall via installation media becomes necessary: " +
+            "Windows downloads its system files completely fresh via Windows Update, but keeps " +
+            "your files, programs and settings. Needs an internet connection and takes noticeably " +
+            "longer than DISM/sfc above. Toolbox X only opens the official Windows page for this - " +
+            "whether the \"Fix problems using Windows Update\" button appears there is decided by " +
+            "Windows itself (depending on version and system state), we can't force it.");
+        UpdateReparaturOeffnenButton.Content = Loc.T(
+            "Windows-Wiederherstellungsseite öffnen", "Open Windows recovery page");
+
         SchluesselBereich.Header = Loc.T("Produktschlüssel sichern", "Back up product key");
         SchluesselErklaerung.Text = Loc.T(
             "Liest den werksseitig hinterlegten OEM-Produktschlüssel aus - praktisch, um ihn VOR " +
@@ -187,6 +207,23 @@ public partial class WindowsReparaturView : UserControl
     }
 
     private void Abbrechen_Click(object sender, RoutedEventArgs e) => _abbruch?.Cancel();
+
+    private void UpdateReparaturOeffnen_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            WindowsReparaturService.OeffneWindowsUpdateReparatur();
+        }
+        catch (Exception ex)
+        {
+            DiagnoseLog.Schreiben(nameof(WindowsReparaturView) + "." + nameof(UpdateReparaturOeffnen_Click), ex.ToString());
+            MessageBox.Show(
+                Loc.T($"Die Windows-Einstellungsseite konnte nicht geöffnet werden: {ex.Message}",
+                      $"Could not open the Windows settings page: {ex.Message}"),
+                Loc.T("Windows-Update-Reparatur", "Windows Update repair"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
 
     private async void SchluesselLaden_Click(object sender, RoutedEventArgs e)
     {
@@ -386,12 +423,16 @@ public partial class WindowsReparaturView : UserControl
                 "candidates are then drivers (see the driver check), startup programs, or the hardware itself."),
 
             (_, PruefBefund.BeschaedigtNichtBehebbar) => Loc.T(
-                "Es sind Beschädigungen übrig, die diese Werkzeuge nicht beheben konnten. Der nächste sinnvolle " +
-                "Schritt ist eine Reparatur-Installation über das offizielle Windows-Installationsmedium - die " +
-                "behält Programme und Daten. Vorher trotzdem ein Backup machen.",
-                "There is remaining damage that these tools could not fix. The next sensible " +
-                "step is a repair installation via the official Windows installation media - it " +
-                "keeps programs and data. Make a backup beforehand anyway."),
+                "Es sind Beschädigungen übrig, die diese Werkzeuge nicht beheben konnten. Nächster " +
+                "sinnvoller Schritt: die „Windows-Update-Reparatur (Cloud)“ weiter unten versuchen - " +
+                "sie lädt die Systemdateien frisch nach, behält aber Programme und Daten. Hilft auch " +
+                "das nicht, bleibt eine Reparatur-Installation über das offizielle Windows-" +
+                "Installationsmedium. Vorher trotzdem ein Backup machen.",
+                "There is remaining damage that these tools could not fix. Next sensible step: try " +
+                "the \"Windows Update repair (cloud)\" section further down - it re-downloads the " +
+                "system files fresh but keeps programs and data. If that doesn't help either, a " +
+                "repair installation via the official Windows installation media remains. Make a " +
+                "backup beforehand anyway."),
 
             _ when reparaturModus => Loc.T(
                 "Ein Neustart ist jetzt sinnvoll, damit die ersetzten Dateien überall greifen. Danach diese " +

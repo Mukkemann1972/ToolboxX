@@ -44,6 +44,19 @@ public class WindowsReparaturService
         }
     }
 
+    /// <summary>
+    /// Öffnet die Windows-11-Einstellungsseite "System &gt; Wiederherstellung", auf der Windows
+    /// (wenn es einen Grund dazu sieht) "Probleme mittels Windows Update beheben" anbietet -
+    /// eine cloudbasierte Neuinstallation der Systemdateien, die Dateien/Programme/Einstellungen
+    /// behält. Der nächste sinnvolle Schritt, wenn DISM+SFC oben (<see cref="DismReparieren"/>,
+    /// <see cref="SfcReparieren"/>) nicht ausreichen, aber vor einer echten Neuinstallation über
+    /// Installationsmedium. Toolbox X öffnet nur die offizielle Windows-Seite - ob der Button
+    /// dort erscheint, entscheidet Windows selbst (abhängig von Build/Zustand), deshalb kein
+    /// eigener Reparatur-Button dafür, nur eine ehrliche Weiterleitung + Erklärung.
+    /// </summary>
+    public static void OeffneWindowsUpdateReparatur() =>
+        Process.Start(new ProcessStartInfo("ms-settings:recovery") { UseShellExecute = true });
+
     // Die zwei Werkzeuge geben UNTERSCHIEDLICH kodiert aus - das ist die Falle, die
     // beim ersten Test zu unlesbarem Zeichensalat gefuehrt hat:
     //   sfc.exe  schreibt UTF-16. Ohne Encoding.Unicode kommen Null-Bytes zwischen
