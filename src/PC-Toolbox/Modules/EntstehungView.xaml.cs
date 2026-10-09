@@ -38,8 +38,8 @@ public partial class EntstehungView : UserControl
 
         HermesRolle.Text = Loc.T("  ·  Recherche im Hintergrund", "  ·  Background research");
         HermesText.Text = Loc.T(
-            "Ein eigenständiger KI-Agent, der auf Alex' Raspberry Pi läuft und aktiv recherchiert: wo bestehende Tools (Uninstall Tool, BestSync, Total Commander, ...) Nutzer im Stich lassen, was gefragt wird und noch fehlt. Ergebnisse fließen ins Ideen-Backlog und in neue Module - Hermes schreibt keinen Code für diese Oberfläche, sondern liefert die Grundlage für Entscheidungen.",
-            "An independent AI agent running on Alex's Raspberry Pi that actively researches: where existing tools (Uninstall Tool, BestSync, Total Commander, ...) let users down, what's being asked for and still missing. Findings flow into the ideas backlog and new modules - Hermes doesn't write code for this interface, it provides the basis for decisions.");
+            "Ein eigenständiger KI-Agent, der aktiv recherchiert (gebaut haben wir ihn zuerst auf einem Raspberry Pi 4, inzwischen ist er auf einen GEEKOM A6 umgezogen, der als Zentrale rund um die Uhr läuft): wo bestehende Tools (Uninstall Tool, BestSync, Total Commander, ...) Nutzer im Stich lassen, was gefragt wird und noch fehlt. Ergebnisse fließen ins Ideen-Backlog und in neue Module - Hermes schreibt keinen Code für diese Oberfläche, sondern liefert die Grundlage für Entscheidungen.",
+            "An independent AI agent that actively researches (we first built it on a Raspberry Pi 4 and have since moved it to a GEEKOM A6 that runs around the clock as our hub): where existing tools (Uninstall Tool, BestSync, Total Commander, ...) let users down, what's being asked for and still missing. Findings flow into the ideas backlog and new modules - Hermes doesn't write code for this interface, it provides the basis for decisions.");
 
         PerspektivenText.Text = Loc.T(
             "Nicht jedes Modul ist zu gleichen Teilen von allen dreien geprägt - aber jedes hat diese drei Perspektiven durchlaufen: technisch machbar (Claude), tatsächlich gebraucht (Hermes), auf echter Hardware bestätigt (Alex).",
@@ -68,8 +68,8 @@ public partial class EntstehungView : UserControl
             "Create instead of consume · For workshops & IT professionals · No subscription, no spyware");
 #else
         FusszeileText.Text = Loc.T(
-            "Erschaffen statt konsumieren · Kostenlos · Open Source · Kein Abo, keine Spyware",
-            "Create instead of consume · Free · Open Source · No subscription, no spyware");
+            "Erschaffen statt konsumieren · Kostenlos · Quelltext einsehbar · Kein Abo, keine Spyware",
+            "Create instead of consume · Free · Source available · No subscription, no spyware");
 #endif
 
 #if PRO_BUILD

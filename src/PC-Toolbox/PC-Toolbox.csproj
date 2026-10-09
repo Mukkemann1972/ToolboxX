@@ -15,7 +15,7 @@
     <Version>0.6.23</Version>
     <Title>Toolbox X</Title>
     <Product>Toolbox X</Product>
-    <Description>Toolbox X – Zukunfts-Toolsammlung fürs Windows-System. Kostenlos, Open Source, kein Abo.</Description>
+    <Description>Toolbox X – Zukunfts-Toolsammlung fürs Windows-System. Kostenlos, kein Abo.</Description>
     <!-- Pro/Free-Trennung passiert zur BUILD-ZEIT, nicht zur Laufzeit (s. IDEEN_BACKLOG.md,
          "Zwei-Tier-Modell"): ausgegraute Buttons liessen sich umgehen, echtes Weglassen aus
          dem Free-Build nicht. Normaler `dotnet build`/`dotnet publish` (kein ProBuild-Flag)

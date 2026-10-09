@@ -166,6 +166,16 @@ public class DateiManagerService
 
                 if (istOrdner)
                 {
+                    // Verschieben würde Junctions/Symlinks im Ordner verlieren (sie werden beim Kopieren übersprungen,
+                    // danach wird die Quelle samt Links gelöscht). Lieber vorher abbrechen, nichts geht verloren.
+                    if (verschieben && EnthaeltReparsePoints(quelle))
+                    {
+                        fehler.Add(new DateiAktionFehler(quelle, Loc.T(
+                            $"{name}: Der Ordner enthält Verknüpfungen (Junctions/Symlinks). Verschieben würde sie verlieren, deshalb wurde nichts verändert. Kopieren ist möglich.",
+                            $"{name}: The folder contains links (junctions/symlinks). Moving would lose them, so nothing was changed. Copying is possible."), 0));
+                        continue;
+                    }
+
                     OrdnerKopieren(quelle, ziel);
                     if (verschieben) Directory.Delete(quelle, recursive: true);
                 }
@@ -194,6 +204,18 @@ public class DateiManagerService
     /// Junction kann auf einen eigenen übergeordneten Ordner zeigen, ein naives Hinterherfolgen
     /// würde dann in eine Endlosschleife laufen (s. NtfsBesonderheiten).
     /// </summary>
+    private static bool EnthaeltReparsePoints(string ordner)
+    {
+        foreach (var unterOrdner in Directory.GetDirectories(ordner))
+        {
+            if (NtfsBesonderheiten.IstReparsePoint(new DirectoryInfo(unterOrdner).Attributes)) return true;
+            if (EnthaeltReparsePoints(unterOrdner)) return true;
+        }
+        foreach (var datei in Directory.GetFiles(ordner))
+            if (NtfsBesonderheiten.IstReparsePoint(new FileInfo(datei).Attributes)) return true;
+        return false;
+    }
+
     private static void OrdnerKopieren(string quelle, string ziel)
     {
         Directory.CreateDirectory(ziel);

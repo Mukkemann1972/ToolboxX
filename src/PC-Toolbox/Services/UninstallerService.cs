@@ -16,7 +16,13 @@ public class UninstallerService
         SafetyEnforcer.AusfuehrenAsync(
             aktionsName: $"Deinstallieren_{Kuerzen(programm.DisplayName)}",
             sichern: snapshotOrdner => Task.Run(() =>
-                SnapshotManager.RegistrySchluesselSichern(snapshotOrdner, programm.RegistryKeyPfad, "uninstall-eintrag")),
+            {
+                // Phase 1 muss Phase 2 blockieren: ohne gelungene Sicherung wird nichts deinstalliert.
+                if (!SnapshotManager.RegistrySchluesselSichern(snapshotOrdner, programm.RegistryKeyPfad, "uninstall-eintrag"))
+                    throw new InvalidOperationException(Loc.T(
+                        $"Die Sicherung des Registry-Eintrags von \"{programm.DisplayName}\" ist fehlgeschlagen. Zur Sicherheit wurde nichts deinstalliert.",
+                        $"Backing up the registry entry of \"{programm.DisplayName}\" failed. Nothing was uninstalled, to be safe."));
+            }),
             ausfuehren: () => NativenDeinstallerStartenAsync(programm),
             verifizieren: () => _scanner.ScanLeftoversAsync(programm),
             fortschritt: fortschritt);
